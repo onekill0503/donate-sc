@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IVault.sol";
 
-abstract contract Donate is IVault {
+contract Donate {
     struct DonationRecord {
         address to;
         uint256 amount;

@@ -7,7 +7,7 @@ import "./interfaces/IDonate.sol";
 import "./interfaces/IMockSUSDE.sol";
 import "./interfaces/IMockUSDE.sol";
 
-abstract contract Vault is IDonate, IMockSUSDE, IMockUSDE {
+contract Vault {
     struct LockedToken {
         uint256 amount;
         uint256 lockUntil;
