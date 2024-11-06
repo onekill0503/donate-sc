@@ -2,8 +2,9 @@
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "./interfaces/IVault.sol";
 
-contract Donate {
+abstract contract Donate is IVault {
 
     struct DonationRecord {
         address to;
@@ -21,6 +22,8 @@ contract Donate {
 
     // Platform Fees was fixed to 1% of the donation amount
     uint256 public platformFees = 1e16;
+    // Goes to vault percentage fixed to 24% of the donation amount
+    uint256 public vaultPercentage = 24e16;
     
 
     event Donation(address indexed donor, uint256 amount);
@@ -33,6 +36,7 @@ contract Donate {
     mapping(address => Donatur[]) public donatur;
     mapping(address => bool) public allowedDonationToken;
     address[] public allowedDonationTokens;
+    address public vaultContract;
 
     constructor() {
         owner = msg.sender;
@@ -61,9 +65,18 @@ contract Donate {
 
         // calculate platform fees and donation amount
         uint256 _platformFees = (_amount * platformFees) / 1e18;
-        uint256 _donationAmount = _amount - _platformFees;
+        uint256 _vaultAmount = (_amount * vaultPercentage) / 1e18;
+        uint256 _donationAmount = _amount - _platformFees - _vaultAmount;
 
-        require(IERC20(_token).transfer(msg.sender, _donationAmount), "Donate: transfer failed");
+        // 75% of the donation amount goes to the user
+        require(IERC20(_token).transfer(msg.sender, _donationAmount), "Donate: donation transfer failed");
+
+        // 1% of the donation amount goes to the platform
+        require(IERC20(_token).transfer(platformAddress, _platformFees), "Donate: fees transfer failed");
+
+        // 24% of the donation amount goes to the vault
+        require(IERC20(_token).approve(vaultContract, _vaultAmount), "Donate: approve failed");
+        require(IVault(vaultContract).depositToVault(msg.sender, _vaultAmount, _token), "Donate: deposit failed");
 
         donations[msg.sender] -= _amount;
         totalWithdraw += _amount;
@@ -121,6 +134,16 @@ contract Donate {
 
     function isTokenAllowed(address _token) public view returns (bool) {
         return allowedDonationToken[_token];
+    }
+
+    function isActiveUser(address _user) public view returns (bool) {
+        // Active user determine based on the donation amount or the number of donations
+        return donations[_user] > 0 || donatur[_user].length > 0;
+    }
+
+    function updateVaultContract(address _vaultContract) public {
+        require(msg.sender == owner, "Donate: only owner can update vault contract");
+        vaultContract = _vaultContract;
     }
 
 }
