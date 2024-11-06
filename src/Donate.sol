@@ -5,11 +5,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IVault.sol";
 
 abstract contract Donate is IVault {
-
     struct DonationRecord {
         address to;
         uint256 amount;
     }
+
     struct Donatur {
         address donatur;
         uint256 amount;
@@ -24,7 +24,6 @@ abstract contract Donate is IVault {
     uint256 public platformFees = 1e16;
     // Goes to vault percentage fixed to 24% of the donation amount
     uint256 public vaultPercentage = 24e16;
-    
 
     event Donation(address indexed donor, uint256 amount);
     event ClaimDonation(address indexed donor, uint256 amount);
@@ -47,15 +46,15 @@ abstract contract Donate is IVault {
         require(_amount > 0, "Donate: amount must be greater than 0");
         require(IERC20(_token).transferFrom(msg.sender, address(this), _amount), "Donate: transfer failed");
 
-        DonationRecord memory _donationRecord = DonationRecord({ to: _to, amount: _amount });
-        Donatur memory _donatur = Donatur({ donatur: msg.sender, amount: _amount });
+        DonationRecord memory _donationRecord = DonationRecord({to: _to, amount: _amount});
+        Donatur memory _donatur = Donatur({donatur: msg.sender, amount: _amount});
 
         donatedAmount[msg.sender].push(_donationRecord);
         donatur[_to].push(_donatur);
 
         donations[_to] += _amount;
         totalDonations += _amount;
-        
+
         emit Donation(msg.sender, _amount);
     }
 
@@ -83,7 +82,7 @@ abstract contract Donate is IVault {
 
         emit ClaimDonation(msg.sender, _amount);
     }
-    
+
     function getTotalDonations(address _user) public view returns (uint256) {
         return donatur[_user].length;
     }
@@ -125,7 +124,7 @@ abstract contract Donate is IVault {
         for (uint256 i = _removedIndex; i < allowedDonationTokens.length - 1; i++) {
             allowedDonationTokens[i] = allowedDonationTokens[i + 1];
         }
-        
+
         // Pop the last element
         allowedDonationTokens.pop();
 
@@ -145,5 +144,4 @@ abstract contract Donate is IVault {
         require(msg.sender == owner, "Donate: only owner can update vault contract");
         vaultContract = _vaultContract;
     }
-
 }

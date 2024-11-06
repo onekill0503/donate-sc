@@ -9,19 +9,15 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 contract MockSUSDE is ERC20, ERC20Burnable, Ownable, ERC20Permit {
     address public vaultContract;
 
-    constructor(address initialOwner)
-        ERC20("MockSUSDE", "MSUSDE")
-        Ownable(initialOwner)
-        ERC20Permit("MockSUSDE")
-    {}
+    constructor(address initialOwner) ERC20("MockSUSDE", "MSUSDE") Ownable(initialOwner) ERC20Permit("MockSUSDE") {}
 
     function mint(address to, uint256 amount) public onlyOwner {
         _mint(to, amount);
     }
-        
+
     // =================== Added function ===================
     // Function below is mocked function,
-    // the real function is exchange to the token  
+    // the real function is exchange to the token
 
     function updateVault(address _vaultContract) public onlyOwner {
         vaultContract = _vaultContract;

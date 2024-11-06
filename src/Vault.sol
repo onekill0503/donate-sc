@@ -8,7 +8,7 @@ import "./interfaces/IMockSUSDE.sol";
 import "./interfaces/IMockUSDE.sol";
 
 abstract contract Vault is IDonate, IMockSUSDE, IMockUSDE {
-    struct LockedToken{
+    struct LockedToken {
         uint256 amount;
         uint256 lockUntil;
     }
@@ -32,7 +32,7 @@ abstract contract Vault is IDonate, IMockSUSDE, IMockUSDE {
         owner = _newOwner;
     }
 
-    function depositToVault(address _user, uint256 _amount, address _tokenAddress) public returns(bool){
+    function depositToVault(address _user, uint256 _amount, address _tokenAddress) public returns (bool) {
         require(IDonate(donateContract).isActiveUser(_user), "Vault: user is not active");
         require(IERC20(_tokenAddress).transferFrom(msg.sender, address(this), _amount), "Vault: transfer failed");
 
@@ -52,15 +52,15 @@ abstract contract Vault is IDonate, IMockSUSDE, IMockUSDE {
         require(IDonate(donateContract).isTokenAllowed(_toToken), "Vault: token not allowed");
 
         uint256 _claimable = 0;
-        for(uint256 i = 0; i < lockedTokens[msg.sender].length; i++){
-            if(lockedTokens[msg.sender][i].lockUntil <= block.number){
+        for (uint256 i = 0; i < lockedTokens[msg.sender].length; i++) {
+            if (lockedTokens[msg.sender][i].lockUntil <= block.number) {
                 _claimable += lockedTokens[msg.sender][i].amount;
                 lockedTokens[msg.sender][i] = lockedTokens[msg.sender][lockedTokens[msg.sender].length - 1];
                 lockedTokens[msg.sender].pop();
             }
         }
         require(_claimable >= _amount, "Vault: not enough claimable amount");
-        
+
         uint256 _usdeAmount = _amount * 1e18 / mockedExhcangeRate;
         ERC20Burnable(vaultToken).burn(_amount);
         require(IMockUSDE(_toToken).mintUSDEFromVault(msg.sender, _usdeAmount), "Vault: mint failed");
@@ -73,17 +73,16 @@ abstract contract Vault is IDonate, IMockSUSDE, IMockUSDE {
         donateContract = _donateContract;
     }
 
-    function userToken(address _user) public view returns(uint256, uint256){
+    function userToken(address _user) public view returns (uint256, uint256) {
         uint256 totalClaimable = 0;
         uint256 totalLocked = 0;
-        for(uint256 i = 0; i < lockedTokens[_user].length; i++){
-            if(lockedTokens[_user][i].lockUntil <= block.number){
+        for (uint256 i = 0; i < lockedTokens[_user].length; i++) {
+            if (lockedTokens[_user][i].lockUntil <= block.number) {
                 totalClaimable += lockedTokens[_user][i].amount;
-            }else{
+            } else {
                 totalLocked += lockedTokens[_user][i].amount;
             }
         }
         return (totalClaimable, totalLocked);
     }
-
 }
