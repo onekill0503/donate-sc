@@ -16,15 +16,18 @@ abstract contract Vault is IDonate, IMockSUSDE, IMockUSDE {
     address public owner;
     address public vaultToken;
     address public donateContract;
-    uint256 public totalLockBlocks = 215000; // this is 1 month in block based on average block per day
+    uint256 public totalLockBlocks;
 
     // Mocked exchange rate for testing purposes , 1 USDe : 0.98 sUSDe
     uint256 public mockedExhcangeRate = 98e16;
 
     mapping(address => LockedToken[]) public lockedTokens;
 
-    constructor() {
+    constructor(address _vaultToken, address _donateContract) {
         owner = msg.sender;
+        vaultToken = _vaultToken;
+        donateContract = _donateContract;
+        totalLockBlocks = 215000; // 1 month in block based on average block per day
     }
 
     function changeOwner(address _newOwner) public {
@@ -65,6 +68,9 @@ abstract contract Vault is IDonate, IMockSUSDE, IMockUSDE {
         ERC20Burnable(vaultToken).burn(_amount);
         require(IMockUSDE(_toToken).mintUSDEFromVault(msg.sender, _usdeAmount), "Vault: mint failed");
         require(IERC20(_toToken).transfer(msg.sender, _usdeAmount), "Vault: transfer failed");
+        require(
+            IDonate(donateContract).updateTotalWidthdrawFromVault(_usdeAmount), "Vault: update total widthdraw failed"
+        );
     }
 
     function updateVault(address _token, address _donateContract) public {
@@ -84,5 +90,10 @@ abstract contract Vault is IDonate, IMockSUSDE, IMockUSDE {
             }
         }
         return (totalClaimable, totalLocked);
+    }
+
+    function updateLockBlocks(uint256 _blocks) public {
+        require(msg.sender == owner, "Vault: only owner can update lock blocks");
+        totalLockBlocks = _blocks;
     }
 }
