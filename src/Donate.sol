@@ -118,11 +118,6 @@ abstract contract Donate is IVault {
         emit addAllowedDonationTokenEvent(_token);
     }
 
-    function batchFundsMoveToVault(address _token) {
-        require(msg.sender == owner, "Donate: only owner can move funds to vault");
-        require(allowedDonationToken[_token], "Donate: token not allowed");
-    }
-
     function changeOwner(address _newOwner) public {
         require(msg.sender == owner, "Donate: only owner can change owner");
         owner = _newOwner;
@@ -169,7 +164,7 @@ abstract contract Donate is IVault {
         vaultContract = _vaultContract;
     }
 
-    function updateTotalWithdrawFromVault(uint256 _amount) public override returns (bool) {
+    function updateTotalWithdrawFromVault(uint256 _amount) public returns (bool) {
         require(msg.sender == vaultContract, "Donate: only vault contract can update total withdraw");
         totalWithdraw += _amount;
         return true;
