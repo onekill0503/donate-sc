@@ -9,6 +9,8 @@ contract Donate {
         address to;
         uint256 amount;
         address token;
+        uint256 vaultIndex;
+        uint256 claimed;
     }
 
     struct Donatur {
@@ -26,6 +28,8 @@ contract Donate {
     uint256 public platformFees = 1e16;
     // Goes to vault percentage fixed to 24% of the donation amount
     uint256 public vaultPercentage = 24e16;
+    // Goes to yield percentage fixed to 75% of the donation amount
+    uint256 public yieldPercentage = 75e16;
 
     event Donation(address indexed donor, uint256 amount);
     event ClaimDonation(address indexed donor, uint256 amount);
@@ -47,9 +51,13 @@ contract Donate {
     function donate(uint256 _amount, address _to, address _token) public {
         require(allowedDonationToken[_token], "Donate: token not allowed");
         require(_amount > 0, "Donate: amount must be greater than 0");
-        require(IERC20(_token).transferFrom(msg.sender, address(this), _amount), "Donate: transfer failed");
 
-        DonationRecord memory _donationRecord = DonationRecord({to: _to, amount: _amount, token: _token});
+        uint256 _vaultIndex =
+            IVault(vaultContract).depositToVault(_to, msg.sender, _amount, _token, donatedAmount[msg.sender].length);
+        require(_vaultIndex > 0, "Donate: deposit failed");
+
+        DonationRecord memory _donationRecord =
+            DonationRecord({to: _to, amount: _amount, token: _token, vaultIndex: _vaultIndex, claimed: 0});
         Donatur memory _donatur = Donatur({donatur: msg.sender, amount: _amount, token: _token});
 
         donatedAmount[msg.sender].push(_donationRecord);
@@ -59,47 +67,6 @@ contract Donate {
         totalDonations += _amount;
 
         emit Donation(msg.sender, _amount);
-    }
-
-    function moveAllDonation(bool _claim) public {
-        int256 totalFunds = 0;
-        for (uint256 i = 0; i < allowedDonationTokens.length; i++) {
-            if (donations[msg.sender][allowedDonationTokens[i]] == 0) continue;
-            totalFunds += int256(donations[msg.sender][allowedDonationTokens[i]]);
-            moveDonation(donations[msg.sender][allowedDonationTokens[i]], allowedDonationTokens[i], _claim);
-        }
-        require(totalFunds > 0, "Donate: no funds to move");
-    }
-
-    function moveDonation(uint256 _amount, address _token, bool _claim) public {
-        require(allowedDonationToken[_token], "Donate: token not allowed");
-        require(donations[msg.sender][_token] >= _amount, "Donate: not enough balance");
-        uint256 _vaultPercentage = vaultPercentage;
-        if (!_claim) {
-            _vaultPercentage = 99e16; // 99% of the donation amount goes to the vault to getting yield
-        }
-        uint256 _platformFees = (_amount * platformFees) / 1e18;
-        uint256 _vaultAmount = (_amount * _vaultPercentage) / 1e18;
-        // calculate platform fees and donation amount
-
-        uint256 _donationAmount = _amount - _platformFees - _vaultAmount;
-
-        if (_donationAmount > 0) {
-            // 75% of the donation amount goes to the user
-            require(IERC20(_token).transfer(msg.sender, _donationAmount), "Donate: donation transfer failed");
-        }
-
-        // 1% of the donation amount goes to the platform
-        require(IERC20(_token).transfer(platformAddress, _platformFees), "Donate: fees transfer failed");
-
-        // 24% of the donation amount goes to the vault
-        require(IERC20(_token).approve(vaultContract, _vaultAmount), "Donate: approve failed");
-        require(IVault(vaultContract).depositToVault(msg.sender, _vaultAmount, _token), "Donate: deposit failed");
-
-        donations[msg.sender][_token] -= _amount;
-        totalWithdraw += _amount;
-
-        emit ClaimDonation(msg.sender, _amount);
     }
 
     function getTotalDonations(address _user) public view returns (uint256) {
@@ -155,7 +122,7 @@ contract Donate {
     }
 
     function isActiveUser(address _user) public view returns (bool) {
-        // Active user determine based on the donation amount or the number of donations
+        require(msg.sender == vaultContract, "Donate: only vault contract can check active user");
         return donatur[_user].length > 0;
     }
 
@@ -168,5 +135,19 @@ contract Donate {
         require(msg.sender == vaultContract, "Donate: only vault contract can update total withdraw");
         totalWithdraw += _amount;
         return true;
+    }
+
+    function getYield(address _user) public view returns (uint256) {
+        uint256 _yield = 0;
+        uint256 _yieldFromVault = 0;
+        for (uint256 i = donatedAmount[_user].length - 1; i >= 0; i--) {
+            if (donatedAmount[_user][i].claimed == donatedAmount[_user][i].amount) break;
+            _yieldFromVault += IVault(vaultContract).getYieldByIndex(_user, donatedAmount[_user][i].vaultIndex);
+            uint256 _unClaimedPercentage = (donatedAmount[_user][i].amount - donatedAmount[_user][i].claimed) * 1e18
+                / donatedAmount[_user][i].amount;
+            _yield += _yieldFromVault * _unClaimedPercentage / 1e18;
+        }
+        // return percentage of yield
+        return _yield * yieldPercentage / 1e18;
     }
 }

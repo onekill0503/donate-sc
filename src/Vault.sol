@@ -9,8 +9,12 @@ import "./interfaces/IMockUSDE.sol";
 
 contract Vault {
     struct LockedToken {
-        uint256 amount;
+        address from;
+        uint256 amountsUSDe;
+        uint256 amountUSDe;
+        uint256 exchangeRateSnapshot;
         uint256 lockUntil;
+        uint256 donateRecordIndex;
     }
 
     address public owner;
@@ -35,42 +39,34 @@ contract Vault {
         owner = _newOwner;
     }
 
-    function depositToVault(address _user, uint256 _amount, address _tokenAddress) public returns (bool) {
-        require(IDonate(donateContract).isActiveUser(_user), "Vault: user is not active");
-        require(IERC20(_tokenAddress).transferFrom(msg.sender, address(this), _amount), "Vault: transfer failed");
+    function depositToVault(
+        address _to,
+        address _from,
+        uint256 _amount,
+        address _tokenAddress,
+        uint256 _donateRecordIndex
+    ) public returns (uint256) {
+        require(IDonate(donateContract).isActiveUser(_from), "Vault: user is not active");
+        require(IERC20(_tokenAddress).transferFrom(_from, address(this), _amount), "Vault: transfer failed");
 
         uint256 _lockUntil = block.number + totalLockBlocks;
         uint256 _sUSDeAmount = _amount * mockedExhcangeRate / 1e18;
+        uint256 _index = lockedTokens[_to].length;
 
-        LockedToken memory _lockedToken = LockedToken({amount: _sUSDeAmount, lockUntil: _lockUntil});
-        lockedTokens[_user].push(_lockedToken);
+        LockedToken memory _lockedToken = LockedToken({
+            amountUSDe: _amount,
+            amountsUSDe: _sUSDeAmount,
+            exchangeRateSnapshot: mockedExhcangeRate,
+            lockUntil: _lockUntil,
+            from: _from,
+            donateRecordIndex: _donateRecordIndex
+        });
+        lockedTokens[_to].push(_lockedToken);
 
-        // burn token address then mint sUSDe
+        // burn token address then mint sUSDe - real case is exchange USDe to sUSDe
         ERC20Burnable(_tokenAddress).burn(_amount);
         require(IMockSUSDE(vaultToken).mintSUSDEFromVault(address(this), _sUSDeAmount), "Vault: transfer failed");
-        return true;
-    }
-
-    function withdrawFromVault(uint256 _amount, address _toToken) public {
-        require(IDonate(donateContract).isTokenAllowed(_toToken), "Vault: token not allowed");
-
-        uint256 _claimable = 0;
-        for (uint256 i = 0; i < lockedTokens[msg.sender].length; i++) {
-            if (lockedTokens[msg.sender][i].lockUntil <= block.number) {
-                _claimable += lockedTokens[msg.sender][i].amount;
-                lockedTokens[msg.sender][i] = lockedTokens[msg.sender][lockedTokens[msg.sender].length - 1];
-                lockedTokens[msg.sender].pop();
-            }
-        }
-        require(_claimable >= _amount, "Vault: not enough claimable amount");
-
-        uint256 _usdeAmount = _amount * 1e18 / mockedExhcangeRate;
-        ERC20Burnable(vaultToken).burn(_amount);
-        require(IMockUSDE(_toToken).mintUSDEFromVault(msg.sender, _usdeAmount), "Vault: mint failed");
-        require(IERC20(_toToken).transfer(msg.sender, _usdeAmount), "Vault: transfer failed");
-        require(
-            IDonate(donateContract).updateTotalWidthdrawFromVault(_usdeAmount), "Vault: update total widthdraw failed"
-        );
+        return _index;
     }
 
     function updateVault(address _token, address _donateContract) public {
@@ -79,21 +75,23 @@ contract Vault {
         donateContract = _donateContract;
     }
 
-    function userToken(address _user) public view returns (uint256, uint256) {
-        uint256 totalClaimable = 0;
-        uint256 totalLocked = 0;
-        for (uint256 i = 0; i < lockedTokens[_user].length; i++) {
-            if (lockedTokens[_user][i].lockUntil <= block.number) {
-                totalClaimable += lockedTokens[_user][i].amount;
-            } else {
-                totalLocked += lockedTokens[_user][i].amount;
-            }
+    function getYieldByIndex(address _creator, uint256 _index) public view returns (uint256) {
+        LockedToken memory _lockedToken = lockedTokens[_creator][_index];
+        if (_lockedToken.lockUntil > block.number) {
+            return 0;
         }
-        return (totalClaimable, totalLocked);
+
+        uint256 _yield = _lockedToken.amountsUSDe * (_lockedToken.exchangeRateSnapshot - mockedExhcangeRate) / 1e18;
+        return _yield;
     }
 
     function updateLockBlocks(uint256 _blocks) public {
         require(msg.sender == owner, "Vault: only owner can update lock blocks");
         totalLockBlocks = _blocks;
+    }
+
+    function updateExchangeRate(uint256 _rate) public {
+        require(msg.sender == owner, "Vault: only owner can update exchange rate");
+        mockedExhcangeRate = _rate;
     }
 }

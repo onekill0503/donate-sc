@@ -2,5 +2,12 @@
 pragma solidity ^0.8.13;
 
 interface IVault {
-    function depositToVault(address _user, uint256 _amount, address _tokenAddress) external returns (bool);
+    function depositToVault(
+        address _to,
+        address _from,
+        uint256 _amount,
+        address _tokenAddress,
+        uint256 _donateRecordIndex
+    ) external returns (uint256);
+    function getYieldByIndex(address _user, uint256 _index) external view returns (uint256);
 }
