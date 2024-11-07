@@ -5,4 +5,6 @@ interface IDonate {
     function isActiveUser(address _user) external view returns (bool);
     function isTokenAllowed(address _token) external view returns (bool);
     function updateTotalWidthdrawFromVault(uint256 _amount) external returns (bool);
+
+    function creatorPercentage() external view returns (uint256);
 }

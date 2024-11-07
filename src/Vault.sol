@@ -15,6 +15,7 @@ contract Vault {
         uint256 exchangeRateSnapshot;
         uint256 lockUntil;
         uint256 donateRecordIndex;
+        uint256 claimed;
     }
 
     address public owner;
@@ -59,7 +60,8 @@ contract Vault {
             exchangeRateSnapshot: mockedExhcangeRate,
             lockUntil: _lockUntil,
             from: _from,
-            donateRecordIndex: _donateRecordIndex
+            donateRecordIndex: _donateRecordIndex,
+            claimed: 0
         });
         lockedTokens[_to].push(_lockedToken);
 
@@ -75,12 +77,27 @@ contract Vault {
         donateContract = _donateContract;
     }
 
+    function getCreatorTokens(address _creator) public view returns (uint256, uint256) {
+        uint256 _lockedTokens = 0;
+        uint256 _unlockedTokens = 0;
+        uint256 _lockedYield = 0;
+        uint256 _unlockedYield = 0;
+        uint256 _creatorPercentage = IDonate(donateContract).creatorPercentage();
+        for (uint256 i = 0; i < lockedTokens[_creator].length; i++) {
+            uint256 _yield = getYieldByIndex(_creator, i);
+            if (lockedTokens[_creator][i].lockUntil > block.number) {
+                _lockedTokens += lockedTokens[_creator][i].amountUSDe;
+                _lockedYield += _yield * _creatorPercentage / 1e18;
+            } else {
+                _unlockedTokens += lockedTokens[_creator][i].amountUSDe;
+                _unlockedYield += _yield * _creatorPercentage / 1e18;
+            }
+        }
+        return ((_lockedTokens + _lockedYield), (_unlockedTokens + _unlockedYield));
+    }
+
     function getYieldByIndex(address _creator, uint256 _index) public view returns (uint256) {
         LockedToken memory _lockedToken = lockedTokens[_creator][_index];
-        if (_lockedToken.lockUntil > block.number) {
-            return 0;
-        }
-
         uint256 _yield = _lockedToken.amountsUSDe * (_lockedToken.exchangeRateSnapshot - mockedExhcangeRate) / 1e18;
         return _yield;
     }

@@ -27,7 +27,7 @@ contract Donate {
     // Platform Fees was fixed to 1% of the donation amount
     uint256 public platformFees = 1e16;
     // Goes to vault percentage fixed to 24% of the donation amount
-    uint256 public vaultPercentage = 24e16;
+    uint256 public creatorPercentage = 24e16;
     // Goes to yield percentage fixed to 75% of the donation amount
     uint256 public yieldPercentage = 75e16;
 
