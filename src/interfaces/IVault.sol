@@ -10,4 +10,5 @@ interface IVault {
         uint256 _donateRecordIndex
     ) external returns (uint256);
     function getYieldByIndex(address _user, uint256 _index) external view returns (uint256);
+    function withdrawFromVault(address _to, uint256 _amount, address _token) external returns (uint256);
 }

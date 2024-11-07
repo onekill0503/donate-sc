@@ -7,4 +7,5 @@ interface IDonate {
     function updateTotalWidthdrawFromVault(uint256 _amount) external returns (bool);
 
     function creatorPercentage() external view returns (uint256);
+    function yieldPercentage() external view returns (uint256);
 }

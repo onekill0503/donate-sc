@@ -29,4 +29,10 @@ contract MockSUSDE is ERC20, ERC20Burnable, Ownable, ERC20Permit {
 
         return true;
     }
+
+    function burnSUSDEFromVault(uint256 amount) public returns (bool) {
+        require(msg.sender == vaultContract, "MockUSDE: only vault can burn");
+        _burn(msg.sender, amount);
+        return true;
+    }
 }

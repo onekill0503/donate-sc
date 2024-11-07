@@ -11,6 +11,7 @@ contract Donate {
         address token;
         uint256 vaultIndex;
         uint256 claimed;
+        uint256 grossAmount;
     }
 
     struct Donatur {
@@ -24,15 +25,15 @@ contract Donate {
     address public owner;
     address public platformAddress;
 
-    // Platform Fees was fixed to 1% of the donation amount
-    uint256 public platformFees = 1e16;
-    // Goes to vault percentage fixed to 24% of the donation amount
-    uint256 public creatorPercentage = 24e16;
+    // Platform Fees was fixed to 1% of the donation amount goes to platform after donation
+    uint256 public platformFees = 5e16;
+    // Goes to vault percentage fixed to 30% of the donation amount
+    uint256 public creatorPercentage = 30e16;
     // Goes to yield percentage fixed to 75% of the donation amount
     uint256 public yieldPercentage = 75e16;
 
     event Donation(address indexed donor, uint256 amount);
-    event ClaimDonation(address indexed donor, uint256 amount);
+    event WithdrawDonation(address indexed donor, uint256 amount);
     event addAllowedDonationTokenEvent(address indexed token);
     event removeAllowedDonationTokenEvent(address indexed token);
 
@@ -56,9 +57,18 @@ contract Donate {
             IVault(vaultContract).depositToVault(_to, msg.sender, _amount, _token, donatedAmount[msg.sender].length);
         require(_vaultIndex > 0, "Donate: deposit failed");
 
-        DonationRecord memory _donationRecord =
-            DonationRecord({to: _to, amount: _amount, token: _token, vaultIndex: _vaultIndex, claimed: 0});
-        Donatur memory _donatur = Donatur({donatur: msg.sender, amount: _amount, token: _token});
+        // Calculate the net amount ( amount - platform fees )
+        uint256 _platformAmount = (_amount * platformFees / 1e18);
+        uint256 _netAmount = _amount - _platformAmount;
+        DonationRecord memory _donationRecord = DonationRecord({
+            to: _to,
+            amount: _netAmount,
+            token: _token,
+            vaultIndex: _vaultIndex,
+            claimed: 0,
+            grossAmount: _amount
+        });
+        Donatur memory _donatur = Donatur({donatur: msg.sender, amount: _netAmount, token: _token});
 
         donatedAmount[msg.sender].push(_donationRecord);
         donatur[_to].push(_donatur);
@@ -67,6 +77,15 @@ contract Donate {
         totalDonations += _amount;
 
         emit Donation(msg.sender, _amount);
+    }
+
+    function withdraw(uint256 _amount, address _token) public {
+        require(allowedDonationToken[_token], "Donate: token not allowed");
+
+        IVault(vaultContract).withdrawFromVault(msg.sender, _amount, _token);
+
+        totalWithdraw += _amount;
+        emit WithdrawDonation(msg.sender, _amount);
     }
 
     function getTotalDonations(address _user) public view returns (uint256) {
