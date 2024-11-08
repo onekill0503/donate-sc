@@ -19,18 +19,18 @@ contract MockSUSDE is ERC20, ERC20Burnable, Ownable, ERC20Permit {
     // Function below is mocked function,
     // the real function is exchange to the token
 
-    function updateVault(address _vaultContract) public onlyOwner {
+    function updateVault(address _vaultContract) external onlyOwner {
         vaultContract = _vaultContract;
     }
 
-    function mintSUSDEFromVault(address to, uint256 amount) public returns (bool) {
+    function mintSUSDEFromVault(address to, uint256 amount) external returns (bool) {
         require(msg.sender == vaultContract, "MockUSDE: only vault can mint");
         _mint(to, amount);
 
         return true;
     }
 
-    function burnSUSDEFromVault(uint256 amount) public returns (bool) {
+    function burnSUSDEFromVault(uint256 amount) external returns (bool) {
         require(msg.sender == vaultContract, "MockUSDE: only vault can burn");
         _burn(msg.sender, amount);
         return true;

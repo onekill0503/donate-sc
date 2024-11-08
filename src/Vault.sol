@@ -36,12 +36,12 @@ contract Vault {
         totalLockBlocks = 215000; // 1 month in block based on average block per day
     }
 
-    function changeOwner(address _newOwner) public {
+    function changeOwner(address _newOwner) external {
         require(msg.sender == owner, "Vault: only owner can change owner");
         owner = _newOwner;
     }
 
-    function withdrawFromVault(address _to, uint256 _amount, address _token) public {
+    function withdrawFromVault(address _to, uint256 _amount, address _token) external {
         require(msg.sender == donateContract, "Vault: only donate contract can withdraw from vault");
 
         // get amount sUSDe to with (included creator yield 30%)
@@ -70,7 +70,7 @@ contract Vault {
         uint256 _amount,
         address _tokenAddress,
         uint256 _donateRecordIndex
-    ) public returns (uint256) {
+    ) external returns (uint256) {
         require(IDonate(donateContract).isActiveUser(_from), "Vault: user is not active");
         require(IERC20(_tokenAddress).transferFrom(_from, address(this), _amount), "Vault: transfer failed");
 
@@ -96,13 +96,13 @@ contract Vault {
         return _index;
     }
 
-    function updateVault(address _token, address _donateContract) public {
+    function updateVault(address _token, address _donateContract) external {
         require(msg.sender == owner, "Vault: only owner can update vault token");
         vaultToken = _token;
         donateContract = _donateContract;
     }
 
-    function getCreatorTokens(address _creator) public view returns (uint256, uint256) {
+    function getCreatorTokens(address _creator) external view returns (uint256, uint256) {
         uint256 _lockedTokens = 0;
         uint256 _unlockedTokens = 0;
         uint256 _lockedYield = 0;
@@ -129,12 +129,12 @@ contract Vault {
         return _yield;
     }
 
-    function updateLockBlocks(uint256 _blocks) public {
+    function updateLockBlocks(uint256 _blocks) external {
         require(msg.sender == owner, "Vault: only owner can update lock blocks");
         totalLockBlocks = _blocks;
     }
 
-    function updateExchangeRate(uint256 _rate) public {
+    function updateExchangeRate(uint256 _rate) external {
         require(msg.sender == owner, "Vault: only owner can update exchange rate");
         mockedExchangeRate = _rate;
     }

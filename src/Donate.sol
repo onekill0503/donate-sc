@@ -49,7 +49,7 @@ contract Donate {
         platformAddress = _platformAddress;
     }
 
-    function donate(uint256 _amount, address _to, address _token) public {
+    function donate(uint256 _amount, address _to, address _token) external {
         require(allowedDonationToken[_token], "Donate: token not allowed");
         require(_amount > 0, "Donate: amount must be greater than 0");
 
@@ -79,7 +79,7 @@ contract Donate {
         emit Donation(msg.sender, _amount);
     }
 
-    function withdraw(uint256 _amount, address _token) public {
+    function withdraw(uint256 _amount, address _token) external {
         require(allowedDonationToken[_token], "Donate: token not allowed");
 
         IVault(vaultContract).withdrawFromVault(msg.sender, _amount, _token);
@@ -88,15 +88,15 @@ contract Donate {
         emit WithdrawDonation(msg.sender, _amount);
     }
 
-    function getTotalDonations(address _user) public view returns (uint256) {
+    function getTotalDonations(address _user) external view returns (uint256) {
         return donatur[_user].length;
     }
 
-    function getDonaturData(address _user, uint256 _index) public view returns (address, uint256) {
+    function getDonaturData(address _user, uint256 _index) external view returns (address, uint256) {
         return (donatur[_user][_index].donatur, donatur[_user][_index].amount);
     }
 
-    function addAllowedDonationToken(address _token) public {
+    function addAllowedDonationToken(address _token) external {
         require(msg.sender == owner, "Donate: only owner can add token");
         allowedDonationToken[_token] = true;
         allowedDonationTokens.push(_token);
@@ -104,12 +104,12 @@ contract Donate {
         emit addAllowedDonationTokenEvent(_token);
     }
 
-    function changeOwner(address _newOwner) public {
+    function changeOwner(address _newOwner) external {
         require(msg.sender == owner, "Donate: only owner can change owner");
         owner = _newOwner;
     }
 
-    function removeAllowedDonationToken(address _token) public {
+    function removeAllowedDonationToken(address _token) external {
         require(msg.sender == owner, "Donate: only owner can remove token");
         allowedDonationToken[_token] = false;
 
@@ -136,27 +136,27 @@ contract Donate {
         emit removeAllowedDonationTokenEvent(_token);
     }
 
-    function isTokenAllowed(address _token) public view returns (bool) {
+    function isTokenAllowed(address _token) external view returns (bool) {
         return allowedDonationToken[_token];
     }
 
-    function isActiveUser(address _user) public view returns (bool) {
+    function isActiveUser(address _user) external view returns (bool) {
         require(msg.sender == vaultContract, "Donate: only vault contract can check active user");
         return donatur[_user].length > 0;
     }
 
-    function updateVaultContract(address _vaultContract) public {
+    function updateVaultContract(address _vaultContract) external {
         require(msg.sender == owner, "Donate: only owner can update vault contract");
         vaultContract = _vaultContract;
     }
 
-    function updateTotalWithdrawFromVault(uint256 _amount) public returns (bool) {
+    function updateTotalWithdrawFromVault(uint256 _amount) external returns (bool) {
         require(msg.sender == vaultContract, "Donate: only vault contract can update total withdraw");
         totalWithdraw += _amount;
         return true;
     }
 
-    function getYield(address _user) public view returns (uint256) {
+    function getYield(address _user) external view returns (uint256) {
         uint256 _yield = 0;
         uint256 _yieldFromVault = 0;
         for (uint256 i = donatedAmount[_user].length - 1; i >= 0; i--) {
