@@ -3,33 +3,62 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IVault.sol";
+/**
+ * @title Donate
+ * @author To De Moon Team
+ * @notice This Contract is used for donation and store the donation data
+ * @custom:experimental This is an experimental contract
+ */
 
 contract Donate {
+    /**
+     * @notice Donation Record Struct to record donation data
+     */
     struct DonationRecord {
-        address to;
-        uint256 amount;
-        address token;
-        uint256 vaultIndex;
-        uint256 claimed;
-        uint256 grossAmount;
+        address to; // creator wallet address
+        uint256 amount; // donation amount
+        address token; // donation token address
+        uint256 vaultIndex; // index array of locked token in vault contract
+        uint256 claimed; // claimed amount of donation
+        uint256 grossAmount; // gross amount of donation
     }
+    /**
+     * @notice Donatur Struct to record donatur data
+     */
 
     struct Donatur {
-        address donatur;
-        uint256 amount;
-        address token;
+        address donatur; // donatur wallet address
+        uint256 amount; // donation amount
+        address token; // donation token address
     }
 
+    /**
+     * @notice Variables to store total donations
+     */
     uint256 public totalDonations;
+    /**
+     * @notice Variables to store total withdraw
+     */
     uint256 public totalWithdraw;
+    /**
+     * @notice Variables to store owner address
+     */
     address public owner;
+    /**
+     * @notice Variables to store platform address
+     */
     address public platformAddress;
-
-    // Platform Fees was fixed to 1% of the donation amount goes to platform after donation
+    /**
+     * @notice Platform Fees Percentage (fixed to 5%), platform fees will be deducted when user donate
+     */
     uint256 public platformFees = 5e16;
-    // Goes to vault percentage fixed to 30% of the donation amount
+    /**
+     * @notice creator Fees Percentage (fixed to 30%), creator fees will be deducted when creator claim donation
+     */
     uint256 public creatorPercentage = 30e16;
-    // Goes to yield percentage fixed to 75% of the donation amount
+    /**
+     * @notice yield Percentage (fixed to 75%), this is donatur yield percentage for cashback
+     */
     uint256 public yieldPercentage = 75e16;
 
     event Donation(address indexed donor, uint256 amount);
@@ -37,18 +66,46 @@ contract Donate {
     event addAllowedDonationTokenEvent(address indexed token);
     event removeAllowedDonationTokenEvent(address indexed token);
 
+    /**
+     * @notice Donation Mapping to store donation data
+     */
     mapping(address => mapping(address => uint256)) public donations;
+    /**
+     * @notice Donated Record for each donatur based on donatur wallet address as a key
+     */
     mapping(address => DonationRecord[]) public donatedAmount;
+    /**
+     * @notice Donatur Mapping to store donatur data based creator address as a key
+     */
     mapping(address => Donatur[]) public donatur;
+    /**
+     * @notice Allowed Donation Token Mapping to store allowed donation token
+     */
     mapping(address => bool) public allowedDonationToken;
+    /**
+     * @notice Allowed Donation Token Array to store allowed donation token
+     */
     address[] public allowedDonationTokens;
+    /**
+     * @notice Vault Contract Address
+     */
     address public vaultContract;
 
+    /**
+     * @notice Constructor to initialize owner and platform address
+     * @param _platformAddress platform wallet address to receive platform fees
+     */
     constructor(address _platformAddress) {
         owner = msg.sender;
         platformAddress = _platformAddress;
     }
 
+    /**
+     * @notice Donate function to donate token to creator
+     * @param _amount Donation amount for creator
+     * @param _to Creator wallet address
+     * @param _token donation token address (ex: USDe)
+     */
     function donate(uint256 _amount, address _to, address _token) external {
         require(allowedDonationToken[_token], "Donate: token not allowed");
         require(_amount > 0, "Donate: amount must be greater than 0");
@@ -79,6 +136,11 @@ contract Donate {
         emit Donation(msg.sender, _amount);
     }
 
+    /**
+     * @notice Withdraw function to withdraw donation from creator
+     * @param _amount Amount of token to withdraw
+     * @param _token token contract address to withdraw
+     */
     function withdraw(uint256 _amount, address _token) external {
         require(allowedDonationToken[_token], "Donate: token not allowed");
 
@@ -88,14 +150,30 @@ contract Donate {
         emit WithdrawDonation(msg.sender, _amount);
     }
 
+    /**
+     * @notice get total creator donation based on creator wallet address
+     * @param _user creator address
+     * @return length total donation record data count
+     */
     function getTotalDonations(address _user) external view returns (uint256) {
         return donatur[_user].length;
     }
 
+    /**
+     * @notice get Donatur Data based on creator wallet address and index of donatur array
+     * @param _user creator wallet address
+     * @param _index index of donatur array
+     * @return _donatur donatur wallet address
+     * @return _amount donation amount
+     */
     function getDonaturData(address _user, uint256 _index) external view returns (address, uint256) {
         return (donatur[_user][_index].donatur, donatur[_user][_index].amount);
     }
 
+    /**
+     * @notice Function to add allowed donation token
+     * @param _token token contract address
+     */
     function addAllowedDonationToken(address _token) external {
         require(msg.sender == owner, "Donate: only owner can add token");
         allowedDonationToken[_token] = true;
@@ -104,16 +182,23 @@ contract Donate {
         emit addAllowedDonationTokenEvent(_token);
     }
 
+    /**
+     * @notice Function to change owner of the contract
+     * @param _newOwner new owner address
+     */
     function changeOwner(address _newOwner) external {
         require(msg.sender == owner, "Donate: only owner can change owner");
         owner = _newOwner;
     }
 
+    /**
+     * @notice Function to remove allowed donation token
+     * @param _token token contract address
+     */
     function removeAllowedDonationToken(address _token) external {
         require(msg.sender == owner, "Donate: only owner can remove token");
         allowedDonationToken[_token] = false;
 
-        // Get the index of the token to be removed
         uint256 _removedIndex = allowedDonationTokens.length;
         for (uint256 i = 0; i < allowedDonationTokens.length; i++) {
             if (allowedDonationTokens[i] == _token) {
@@ -122,40 +207,61 @@ contract Donate {
             }
         }
 
-        // if the token is not found, revert
         require(_removedIndex < allowedDonationTokens.length, "Donate: token not found");
 
-        // Move the last element to the removed index
         for (uint256 i = _removedIndex; i < allowedDonationTokens.length - 1; i++) {
             allowedDonationTokens[i] = allowedDonationTokens[i + 1];
         }
 
-        // Pop the last element
         allowedDonationTokens.pop();
 
         emit removeAllowedDonationTokenEvent(_token);
     }
 
+    /**
+     * @notice function to check is token allowed for donation or not
+     * @param _token token contract address
+     * @return status status of token is allowed or not
+     */
     function isTokenAllowed(address _token) external view returns (bool) {
         return allowedDonationToken[_token];
     }
 
+    /**
+     * @notice function to check is user an active user or not
+     * @param _user user wallet address
+     * @return status status of user is active or not
+     */
     function isActiveUser(address _user) external view returns (bool) {
         require(msg.sender == vaultContract, "Donate: only vault contract can check active user");
         return donatur[_user].length > 0;
     }
 
+    /**
+     * @notice function to update vault contract address
+     * @param _vaultContract new vault contract address
+     */
     function updateVaultContract(address _vaultContract) external {
         require(msg.sender == owner, "Donate: only owner can update vault contract");
         vaultContract = _vaultContract;
     }
 
+    /**
+     * @notice function to update total withdraw amount from vault
+     * @param _amount amount of token to update
+     * @return status status of update total withdraw
+     */
     function updateTotalWithdrawFromVault(uint256 _amount) external returns (bool) {
         require(msg.sender == vaultContract, "Donate: only vault contract can update total withdraw");
         totalWithdraw += _amount;
         return true;
     }
 
+    /**
+     * @notice function to get yield amount from active donation user
+     * @param _user user wallet address
+     * @return _yield yield amount deducted by yeild percentage
+     */
     function getYield(address _user) external view returns (uint256) {
         uint256 _yield = 0;
         uint256 _yieldFromVault = 0;
