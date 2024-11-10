@@ -1,5 +1,5 @@
 # Vault
-[Git Source](https://github.com/onekill0503/donate-sc/blob/b586165cee99e3057a977a781c8c80d9f666681c/src\Vault.sol)
+[Git Source](https://github.com/onekill0503/donate-sc/blob/a078220bd4d81597f10b7d396efe342f73180a17/src\Vault.sol)
 
 **Author:**
 To De Moon Team
@@ -223,6 +223,22 @@ function updateExchangeRate(uint256 _rate) external;
 |Name|Type|Description|
 |----|----|-----------|
 |`_rate`|`uint256`|exchange rate for 1 USDe to sUSDe (it's just mock for testing)|
+
+
+### withdrawYield
+
+function is used to withdraw yield from vault to donatur
+
+
+```solidity
+function withdrawYield(address _to, uint256 _amount) external returns (bool);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`_to`|`address`|donatur wallet address to receive yield|
+|`_amount`|`uint256`|withdraw amount of yield|
 
 
 ## Structs

@@ -32,4 +32,10 @@ interface IVault {
      * @param _token token contract address
      */
     function withdrawFromVault(address _to, uint256 _amount, address _token) external;
+    /**
+     * @notice function is used to withdraw yield from vault to donatur
+     * @param _to donatur wallet address to receive yield
+     * @param _amount withdraw amount of yield
+     */
+    function withdrawYield(address _to, uint256 _amount) external returns (bool);
 }

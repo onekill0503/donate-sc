@@ -21,6 +21,7 @@ contract Donate {
         uint256 vaultIndex; // index array of locked token in vault contract
         uint256 claimed; // claimed amount of donation
         uint256 grossAmount; // gross amount of donation
+        uint256 lockedDonaturYield; // Donatur Yield Locked Value (when creator claim, the donatur yield portion will be store here)
     }
     /**
      * @notice Donatur Struct to record donatur data
@@ -51,15 +52,15 @@ contract Donate {
     /**
      * @notice Platform Fees Percentage (fixed to 5%), platform fees will be deducted when user donate
      */
-    uint256 public platformFees = 5e16;
+    uint256 public platformFees = 5;
     /**
      * @notice creator Fees Percentage (fixed to 30%), creator fees will be deducted when creator claim donation
      */
-    uint256 public creatorPercentage = 30e16;
+    uint256 public creatorPercentage = 30;
     /**
      * @notice yield Percentage (fixed to 75%), this is donatur yield percentage for cashback
      */
-    uint256 public yieldPercentage = 75e16;
+    uint256 public yieldPercentage = 75;
 
     event Donation(address indexed donor, uint256 amount);
     event WithdrawDonation(address indexed donor, uint256 amount);
@@ -115,7 +116,7 @@ contract Donate {
         require(_vaultIndex > 0, "Donate: deposit failed");
 
         // Calculate the net amount ( amount - platform fees )
-        uint256 _platformAmount = (_amount * platformFees / 1e18);
+        uint256 _platformAmount = (_amount * platformFees / 100);
         uint256 _netAmount = _amount - _platformAmount;
         DonationRecord memory _donationRecord = DonationRecord({
             to: _to,
@@ -123,7 +124,8 @@ contract Donate {
             token: _token,
             vaultIndex: _vaultIndex,
             claimed: 0,
-            grossAmount: _amount
+            grossAmount: _amount,
+            lockedDonaturYield: 0
         });
         Donatur memory _donatur = Donatur({donatur: msg.sender, amount: _netAmount, token: _token});
 
@@ -265,14 +267,62 @@ contract Donate {
     function getYield(address _user) external view returns (uint256) {
         uint256 _yield = 0;
         uint256 _yieldFromVault = 0;
+        uint256 _unClaimedPercentage = 0;
         for (uint256 i = donatedAmount[_user].length - 1; i >= 0; i--) {
-            if (donatedAmount[_user][i].claimed == donatedAmount[_user][i].amount) break;
+            if (
+                donatedAmount[_user][i].claimed == donatedAmount[_user][i].amount
+                    && donatedAmount[_user][i].lockedDonaturYield == 0
+            ) break;
             _yieldFromVault += IVault(vaultContract).getYieldByIndex(_user, donatedAmount[_user][i].vaultIndex);
-            uint256 _unClaimedPercentage = (donatedAmount[_user][i].amount - donatedAmount[_user][i].claimed) * 1e18
-                / donatedAmount[_user][i].amount;
-            _yield += _yieldFromVault * _unClaimedPercentage / 1e18;
+            _unClaimedPercentage = (donatedAmount[_user][i].amount - donatedAmount[_user][i].claimed) / 1e18;
+            _yieldFromVault = _yieldFromVault * _unClaimedPercentage / 100;
+            _yield += donatedAmount[_user][i].lockedDonaturYield > 0
+                ? _yieldFromVault
+                : ((_yieldFromVault * yieldPercentage) / 100);
         }
         // return percentage of yield
-        return _yield * yieldPercentage / 1e18;
+        return _yield;
+    }
+
+    /**
+     * @notice function to update donate record at Donate smartcontract
+     * @param _user donatur wallet address
+     * @param _index index of Donatur Record array
+     * @param _claimed amount claimed token by creator
+     * @param _lockedDonaturYield donatur yield locked amount
+     */
+    function updateDonatedAmount(address _user, uint256 _index, uint256 _claimed, uint256 _lockedDonaturYield)
+        external
+    {
+        require(msg.sender == vaultContract, "Donate: only vault contract can update donated amount");
+        donatedAmount[_user][_index].claimed = _claimed;
+        donatedAmount[_user][_index].lockedDonaturYield = _lockedDonaturYield;
+    }
+    /**
+     * @notice function is used to withdraw all donatur yield from vault
+     */
+
+    function withdrawDonaturYield() external {
+        uint256 _yield = 0;
+        uint256 _yieldFromVault = 0;
+        uint256 _unClaimedPercentage = 0;
+        for (uint256 i = donatedAmount[msg.sender].length - 1; i >= 0; i--) {
+            if (
+                donatedAmount[msg.sender][i].claimed == donatedAmount[msg.sender][i].amount
+                    && donatedAmount[msg.sender][i].lockedDonaturYield == 0
+            ) break;
+            _yieldFromVault +=
+                IVault(vaultContract).getYieldByIndex(msg.sender, donatedAmount[msg.sender][i].vaultIndex);
+            _unClaimedPercentage = (donatedAmount[msg.sender][i].amount - donatedAmount[msg.sender][i].claimed) / 1e18;
+            _yieldFromVault = _yieldFromVault * _unClaimedPercentage / 100;
+            _yield += donatedAmount[msg.sender][i].lockedDonaturYield > 0
+                ? _yieldFromVault
+                : ((_yieldFromVault * yieldPercentage) / 100);
+
+            donatedAmount[msg.sender][i].lockedDonaturYield = 0;
+        }
+
+        require(_yield > 0, "Donate: no yield to withdraw");
+        require(IVault(vaultContract).withdrawYield(msg.sender, _yield), "Donate: withdraw yield failed");
     }
 }

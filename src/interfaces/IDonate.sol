@@ -30,4 +30,13 @@ interface IDonate {
      * @return donaturPercentage donatur yield percentage
      */
     function yieldPercentage() external view returns (uint256);
+    /**
+     * @notice function to update donate record at Donate smartcontract
+     * @param _user donatur wallet address
+     * @param _index index of Donatur Record array
+     * @param _claimed amount claimed token by creator
+     * @param _lockedDonaturYield donatur yield locked amount
+     */
+    function updateDonatedAmount(address _user, uint256 _index, uint256 _claimed, uint256 _lockedDonaturYield)
+        external;
 }

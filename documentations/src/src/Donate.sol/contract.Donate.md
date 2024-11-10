@@ -1,5 +1,5 @@
 # Donate
-[Git Source](https://github.com/onekill0503/donate-sc/blob/b586165cee99e3057a977a781c8c80d9f666681c/src\Donate.sol)
+[Git Source](https://github.com/onekill0503/donate-sc/blob/a078220bd4d81597f10b7d396efe342f73180a17/src\Donate.sol)
 
 **Author:**
 To De Moon Team
@@ -52,7 +52,7 @@ Platform Fees Percentage (fixed to 5%), platform fees will be deducted when user
 
 
 ```solidity
-uint256 public platformFees = 5e16;
+uint256 public platformFees = 5;
 ```
 
 
@@ -61,7 +61,7 @@ creator Fees Percentage (fixed to 30%), creator fees will be deducted when creat
 
 
 ```solidity
-uint256 public creatorPercentage = 30e16;
+uint256 public creatorPercentage = 30;
 ```
 
 
@@ -70,7 +70,7 @@ yield Percentage (fixed to 75%), this is donatur yield percentage for cashback
 
 
 ```solidity
-uint256 public yieldPercentage = 75e16;
+uint256 public yieldPercentage = 75;
 ```
 
 
@@ -365,6 +365,33 @@ function getYield(address _user) external view returns (uint256);
 |`<none>`|`uint256`|_yield yield amount deducted by yeild percentage|
 
 
+### updateDonatedAmount
+
+function to update donate record at Donate smartcontract
+
+
+```solidity
+function updateDonatedAmount(address _user, uint256 _index, uint256 _claimed, uint256 _lockedDonaturYield) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`_user`|`address`|donatur wallet address|
+|`_index`|`uint256`|index of Donatur Record array|
+|`_claimed`|`uint256`|amount claimed token by creator|
+|`_lockedDonaturYield`|`uint256`|donatur yield locked amount|
+
+
+### withdrawDonaturYield
+
+function is used to withdraw all donatur yield from vault
+
+
+```solidity
+function withdrawDonaturYield() external;
+```
+
 ## Events
 ### Donation
 
@@ -403,6 +430,7 @@ struct DonationRecord {
     uint256 vaultIndex;
     uint256 claimed;
     uint256 grossAmount;
+    uint256 lockedDonaturYield;
 }
 ```
 

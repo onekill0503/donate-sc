@@ -1,5 +1,5 @@
 # IVault
-[Git Source](https://github.com/onekill0503/donate-sc/blob/b586165cee99e3057a977a781c8c80d9f666681c/src\interfaces\IVault.sol)
+[Git Source](https://github.com/onekill0503/donate-sc/blob/a078220bd4d81597f10b7d396efe342f73180a17/src\interfaces\IVault.sol)
 
 
 ## Functions
@@ -67,5 +67,21 @@ function withdrawFromVault(address _to, uint256 _amount, address _token) externa
 |`_to`|`address`|creator wallet address to receive token|
 |`_amount`|`uint256`|amount to withdraw|
 |`_token`|`address`|token contract address|
+
+
+### withdrawYield
+
+function is used to withdraw yield from vault to donatur
+
+
+```solidity
+function withdrawYield(address _to, uint256 _amount) external returns (bool);
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`_to`|`address`|donatur wallet address to receive yield|
+|`_amount`|`uint256`|withdraw amount of yield|
 
 

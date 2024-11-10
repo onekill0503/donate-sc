@@ -1,5 +1,5 @@
 # IDonate
-[Git Source](https://github.com/onekill0503/donate-sc/blob/b586165cee99e3057a977a781c8c80d9f666681c/src\interfaces\IDonate.sol)
+[Git Source](https://github.com/onekill0503/donate-sc/blob/a078220bd4d81597f10b7d396efe342f73180a17/src\interfaces\IDonate.sol)
 
 
 ## Functions
@@ -94,5 +94,23 @@ function yieldPercentage() external view returns (uint256);
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`uint256`|donaturPercentage donatur yield percentage|
+
+
+### updateDonatedAmount
+
+function to update donate record at Donate smartcontract
+
+
+```solidity
+function updateDonatedAmount(address _user, uint256 _index, uint256 _claimed, uint256 _lockedDonaturYield) external;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`_user`|`address`|donatur wallet address|
+|`_index`|`uint256`|index of Donatur Record array|
+|`_claimed`|`uint256`|amount claimed token by creator|
+|`_lockedDonaturYield`|`uint256`|donatur yield locked amount|
 
 

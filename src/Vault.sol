@@ -87,12 +87,18 @@ contract Vault {
 
         for (uint256 i = lockedTokens[_to].length - 1; i >= 0; i--) {
             if (lockedTokens[_to][i].claimed == lockedTokens[_to][i].amountUSDe) break;
+            if (_USDeAmount == _amount) break;
             if (lockedTokens[_to][i].lockUntil < block.number) {
                 uint256 _yield = getYieldByIndex(_to, i);
-                uint256 _creatorYield = _yield * IDonate(donateContract).creatorPercentage() / 1e18;
-                uint256 _donaturYield = _yield * IDonate(donateContract).yieldPercentage() / 1e18;
+                uint256 _creatorYield = _yield * IDonate(donateContract).creatorPercentage() / 100;
+                uint256 _donaturYield = _yield * IDonate(donateContract).yieldPercentage() / 100;
+                uint256 _claimedAmount = (lockedTokens[_to][i].amountUSDe - lockedTokens[_to][i].claimed);
                 lockedTokens[_to][i].lockedDonaturYield = _donaturYield;
-                _USDeAmount += lockedTokens[_to][i].amountUSDe + _creatorYield;
+                _USDeAmount += _claimedAmount + _creatorYield;
+
+                IDonate(donateContract).updateDonatedAmount(
+                    lockedTokens[_to][i].from, lockedTokens[_to][i].donateRecordIndex, _claimedAmount, _donaturYield
+                );
             }
         }
 
@@ -169,10 +175,10 @@ contract Vault {
             uint256 _yield = getYieldByIndex(_creator, i);
             if (lockedTokens[_creator][i].lockUntil > block.number) {
                 _lockedTokens += lockedTokens[_creator][i].amountUSDe;
-                _lockedYield += _yield * _creatorPercentage / 1e18;
+                _lockedYield += _yield * _creatorPercentage / 100;
             } else {
                 _unlockedTokens += lockedTokens[_creator][i].amountUSDe;
-                _unlockedYield += _yield * _creatorPercentage / 1e18;
+                _unlockedYield += _yield * _creatorPercentage / 100;
             }
         }
         return ((_lockedTokens + _lockedYield), (_unlockedTokens + _unlockedYield));
@@ -207,5 +213,17 @@ contract Vault {
     function updateExchangeRate(uint256 _rate) external {
         require(msg.sender == owner, "Vault: only owner can update exchange rate");
         mockedExchangeRate = _rate;
+    }
+
+    /**
+     * @notice function is used to withdraw yield from vault to donatur
+     * @param _to donatur wallet address to receive yield
+     * @param _amount withdraw amount of yield
+     */
+    function withdrawYield(address _to, uint256 _amount) external returns (bool) {
+        require(msg.sender == donateContract, "Vault: only donate contract can call this function");
+        require(IMockSUSDE(vaultToken).burnSUSDEFromVault(_amount), "Vault: transfer failed");
+        require(IMockUSDE(vaultToken).mintUSDEFromVault(_to, _amount), "Vault: transfer failed");
+        return true;
     }
 }
