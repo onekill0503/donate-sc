@@ -230,16 +230,6 @@ contract Donate {
     }
 
     /**
-     * @notice function to check is user an active user or not
-     * @param _user user wallet address
-     * @return status status of user is active or not
-     */
-    function isActiveUser(address _user) external view returns (bool) {
-        require(msg.sender == vaultContract, "Donate: only vault contract can check active user");
-        return donatur[_user].length > 0;
-    }
-
-    /**
      * @notice function to update vault contract address
      * @param _vaultContract new vault contract address
      */
