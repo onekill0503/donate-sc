@@ -123,7 +123,7 @@ contract Vault {
         address _tokenAddress,
         uint256 _donateRecordIndex
     ) external returns (uint256) {
-        require(msg.sender = donateContract, "Vault: only donate contract can call this function");
+        require(msg.sender == donateContract, "Vault: only donate contract can call this function");
         require(IERC20(_tokenAddress).transferFrom(_from, address(this), _amount), "Vault: transfer failed");
 
         uint256 _lockUntil = block.number + totalLockBlocks;
