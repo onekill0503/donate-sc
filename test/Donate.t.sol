@@ -48,7 +48,7 @@ contract DonateTest is Test {
          * Check if platform is correct
          * Check is token is allowed
          * User will donate with different amount to Content Creator
-         * Check total donation of content creator
+         * Check total creator token in vault
          */
         assertEq(donate.owner(), owner);
         assertEq(donate.platformAddress(), platform);
@@ -74,7 +74,7 @@ contract DonateTest is Test {
         vm.stopPrank();
 
         vm.startPrank(alex);
-        (uint256 lockedToken, ) = vault.getCreatorTokens(address(alex));
+        (uint256 lockedToken,) = vault.getCreatorTokens(address(alex));
         assertEq(lockedToken, 400);
         vm.stopPrank();
     }

@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "./interfaces/IDonate.sol";
 import "./interfaces/IMockSUSDE.sol";
 import "./interfaces/IMockUSDE.sol";
-import {console} from "forge-std/console.sol";
 
 /**
  * @title Vault
@@ -171,7 +170,7 @@ contract Vault {
         uint256 _lockedYield = 0;
         uint256 _unlockedYield = 0;
         uint256 _creatorPercentage = IDonate(donateContract).creatorPercentage();
-        if(lockedTokens[_creator].length == 0) return (0, 0);
+        if (lockedTokens[_creator].length == 0) return (0, 0);
         for (uint256 i = 0; i <= (lockedTokens[_creator].length - 1); i++) {
             if (lockedTokens[_creator][i].claimed == lockedTokens[_creator][i].amountUSDe) break;
             uint256 _yield = getYieldByIndex(_creator, i);
