@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "./interfaces/IDonate.sol";
 import "./interfaces/IMockSUSDE.sol";
 import "./interfaces/IMockUSDE.sol";
+import {console} from "forge-std/console.sol";
 
 /**
  * @title Vault
@@ -142,7 +143,7 @@ contract Vault {
         });
         lockedTokens[_to].push(_lockedToken);
 
-        require(IMockUSDE(vaultToken).burnUSDEFromVault(_amount), "Vault: transfer failed");
+        require(IMockUSDE(_tokenAddress).burnUSDEFromVault(_amount), "Vault: transfer failed");
         require(IMockSUSDE(vaultToken).mintSUSDEFromVault(address(this), _sUSDeAmount), "Vault: transfer failed");
         return _index;
     }
@@ -170,15 +171,16 @@ contract Vault {
         uint256 _lockedYield = 0;
         uint256 _unlockedYield = 0;
         uint256 _creatorPercentage = IDonate(donateContract).creatorPercentage();
-        for (uint256 i = lockedTokens[_creator].length - 1; i >= 0; i++) {
+        if(lockedTokens[_creator].length == 0) return (0, 0);
+        for (uint256 i = 0; i <= (lockedTokens[_creator].length - 1); i++) {
             if (lockedTokens[_creator][i].claimed == lockedTokens[_creator][i].amountUSDe) break;
             uint256 _yield = getYieldByIndex(_creator, i);
             if (lockedTokens[_creator][i].lockUntil > block.number) {
                 _lockedTokens += lockedTokens[_creator][i].amountUSDe;
-                _lockedYield += _yield * _creatorPercentage / 100;
+                _lockedYield += ((_yield * _creatorPercentage) / 100);
             } else {
                 _unlockedTokens += lockedTokens[_creator][i].amountUSDe;
-                _unlockedYield += _yield * _creatorPercentage / 100;
+                _unlockedYield += ((_yield * _creatorPercentage) / 100);
             }
         }
         return ((_lockedTokens + _lockedYield), (_unlockedTokens + _unlockedYield));

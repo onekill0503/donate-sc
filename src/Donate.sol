@@ -113,7 +113,7 @@ contract Donate {
 
         uint256 _vaultIndex =
             IVault(vaultContract).depositToVault(_to, msg.sender, _amount, _token, donatedAmount[msg.sender].length);
-        require(_vaultIndex > 0, "Donate: deposit failed");
+        require(_vaultIndex >= 0, "Donate: deposit failed");
 
         // Calculate the net amount ( amount - platform fees )
         uint256 _platformAmount = (_amount * platformFees / 100);

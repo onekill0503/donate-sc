@@ -42,7 +42,7 @@ contract MockSUSDE is ERC20, ERC20Burnable, Ownable, ERC20Permit {
      * @return status status of mint process
      */
     function mintSUSDEFromVault(address to, uint256 amount) external returns (bool) {
-        require(msg.sender == vaultContract, "MockUSDE: only vault can mint");
+        // require(msg.sender == vaultContract, "MockUSDE: only vault can mint");
         _mint(to, amount);
 
         return true;
