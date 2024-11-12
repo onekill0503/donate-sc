@@ -32,9 +32,9 @@ contract DonateTest is Test {
 
         vault = new Vault(address(MSUSDE), address(donate));
 
-        MUSDE.mint(alex, 1000);
-        MUSDE.mint(asep, 1000);
-        MUSDE.mint(budi, 1000);
+        MUSDE.mint(alex, 1000e18);
+        MUSDE.mint(asep, 1000e18);
+        MUSDE.mint(budi, 1000e18);
 
         MUSDE.updateVault(address(vault));
         MSUSDE.updateVault(address(vault));
@@ -49,6 +49,7 @@ contract DonateTest is Test {
          * Check is token is allowed
          * User will donate with different amount to Content Creator
          * Check total creator token in vault
+         * Initial exchange rate is 89e16
          */
         assertEq(donate.owner(), owner);
         assertEq(donate.platformAddress(), platform);
@@ -56,26 +57,56 @@ contract DonateTest is Test {
         assert(donate.isTokenAllowed(address(MUSDE)));
 
         vm.startPrank(asep);
-        MUSDE.approve(address(donate), 100);
-        MUSDE.approve(address(vault), 100);
-        donate.donate(100, address(alex), address(MUSDE));
+        MUSDE.approve(address(donate), 100e18);
+        MUSDE.approve(address(vault), 100e18);
+        donate.donate(100e18, address(alex), address(MUSDE));
         vm.stopPrank();
 
         vm.startPrank(budi);
-        MUSDE.approve(address(donate), 200);
-        MUSDE.approve(address(vault), 200);
-        donate.donate(200, address(alex), address(MUSDE));
+        MUSDE.approve(address(donate), 200e18);
+        MUSDE.approve(address(vault), 200e18);
+        donate.donate(200e18, address(alex), address(MUSDE));
         vm.stopPrank();
 
         vm.startPrank(asep);
-        MUSDE.approve(address(donate), 100);
-        MUSDE.approve(address(vault), 100);
-        donate.donate(100, address(alex), address(MUSDE));
+        MUSDE.approve(address(donate), 100e18);
+        MUSDE.approve(address(vault), 100e18);
+        donate.donate(100e18, address(alex), address(MUSDE));
+        vm.stopPrank();
+
+        vm.prank(owner);
+        vault.updateExchangeRate(93e16);
+        vm.stopPrank();
+
+        vm.startPrank(budi);
+        MUSDE.approve(address(donate), 200e18);
+        MUSDE.approve(address(vault), 200e18);
+        donate.donate(200e18, address(alex), address(MUSDE));
+        vm.stopPrank();
+
+        vm.prank(owner);
+        vault.updateExchangeRate(95e16);
+        vm.stopPrank();
+
+        vm.startPrank(asep);
+        MUSDE.approve(address(donate), 300e18);
+        MUSDE.approve(address(vault), 300e18);
+        donate.donate(300e18, address(alex), address(MUSDE));
+        vm.stopPrank();
+
+        vm.startPrank(budi);
+        MUSDE.approve(address(donate), 100e18);
+        MUSDE.approve(address(vault), 100e18);
+        donate.donate(100e18, address(alex), address(MUSDE));
         vm.stopPrank();
 
         vm.startPrank(alex);
         (uint256 lockedToken,) = vault.getCreatorTokens(address(alex));
-        assertEq(lockedToken, 400);
+        assertEq(lockedToken, 957980000000000000000);
         vm.stopPrank();
+
+        vm.prank(asep);
+        uint256 percentage = donate.getYield(address(asep));
+        console.log("Percentage: ", percentage);
     }
 }
