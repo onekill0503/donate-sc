@@ -48,7 +48,7 @@ contract Vault {
     /**
      * @notice exchange rate for 1 USDe to sUSDe
      */
-    uint256 public mockedExchangeRate = 98e16;
+    uint256 public mockedExchangeRate = 89e16;
     /**
      * @notice locked token mapping
      */
@@ -85,19 +85,23 @@ contract Vault {
         require(msg.sender == donateContract, "Vault: only donate contract can withdraw from vault");
         uint256 _USDeAmount;
 
-        for (uint256 i = lockedTokens[_to].length - 1; i >= 0; i--) {
-            if (lockedTokens[_to][i].claimed == lockedTokens[_to][i].amountUSDe) break;
+        for (int256 i = int256(lockedTokens[_to].length) - 1; i >= 0; i--) {
+            uint256 index = uint256(i);
+            if (lockedTokens[_to][index].claimed == lockedTokens[_to][index].amountUSDe) break;
             if (_USDeAmount == _amount) break;
-            if (lockedTokens[_to][i].lockUntil < block.number) {
-                uint256 _yield = getYieldByIndex(_to, i);
+            if (lockedTokens[_to][index].lockUntil < block.number) {
+                uint256 _yield = getYieldByIndex(_to, index);
                 uint256 _creatorYield = _yield * IDonate(donateContract).creatorPercentage() / 100;
                 uint256 _donaturYield = _yield * IDonate(donateContract).yieldPercentage() / 100;
-                uint256 _claimedAmount = (lockedTokens[_to][i].amountUSDe - lockedTokens[_to][i].claimed);
-                lockedTokens[_to][i].lockedDonaturYield = _donaturYield;
+                uint256 _claimedAmount = (lockedTokens[_to][index].amountUSDe - lockedTokens[_to][index].claimed);
+                lockedTokens[_to][index].lockedDonaturYield = _donaturYield;
                 _USDeAmount += _claimedAmount + _creatorYield;
 
                 IDonate(donateContract).updateDonatedAmount(
-                    lockedTokens[_to][i].from, lockedTokens[_to][i].donateRecordIndex, _claimedAmount, _donaturYield
+                    lockedTokens[_to][index].from,
+                    lockedTokens[_to][index].donateRecordIndex,
+                    _claimedAmount,
+                    _donaturYield
                 );
             }
         }
@@ -171,14 +175,15 @@ contract Vault {
         uint256 _unlockedYield = 0;
         uint256 _creatorPercentage = IDonate(donateContract).creatorPercentage();
         if (lockedTokens[_creator].length == 0) return (0, 0);
-        for (uint256 i = 0; i <= (lockedTokens[_creator].length - 1); i++) {
-            if (lockedTokens[_creator][i].claimed == lockedTokens[_creator][i].amountUSDe) break;
-            uint256 _yield = getYieldByIndex(_creator, i);
-            if (lockedTokens[_creator][i].lockUntil > block.number) {
-                _lockedTokens += lockedTokens[_creator][i].amountUSDe;
+        for (int256 i = int256(lockedTokens[_creator].length) - 1; i >= 0; i--) {
+            uint256 index = uint256(i);
+            if (lockedTokens[_creator][index].claimed == lockedTokens[_creator][index].amountUSDe) break;
+            uint256 _yield = getYieldByIndex(_creator, index);
+            if (lockedTokens[_creator][index].lockUntil > block.number) {
+                _lockedTokens += lockedTokens[_creator][index].amountUSDe;
                 _lockedYield += ((_yield * _creatorPercentage) / 100);
             } else {
-                _unlockedTokens += lockedTokens[_creator][i].amountUSDe;
+                _unlockedTokens += lockedTokens[_creator][index].amountUSDe;
                 _unlockedYield += ((_yield * _creatorPercentage) / 100);
             }
         }
@@ -194,7 +199,10 @@ contract Vault {
     function getYieldByIndex(address _creator, uint256 _index) public view returns (uint256) {
         LockedToken memory _lockedToken = lockedTokens[_creator][_index];
         if (_lockedToken.lockedDonaturYield > 0) return _lockedToken.lockedDonaturYield;
-        uint256 _yield = _lockedToken.amountsUSDe * (_lockedToken.exchangeRateSnapshot - mockedExchangeRate) / 1e18;
+        uint256 _amountInSnapshot = _lockedToken.amountUSDe * _lockedToken.exchangeRateSnapshot / 1e18;
+        uint256 _amountCurrentExchangeRate = _lockedToken.amountUSDe * mockedExchangeRate / 1e18;
+        uint256 _yield =
+            _amountCurrentExchangeRate > _amountInSnapshot ? _amountCurrentExchangeRate - _amountInSnapshot : 0;
         return _yield;
     }
 

@@ -3,13 +3,13 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interfaces/IVault.sol";
+
 /**
  * @title Donate
  * @author To De Moon Team
  * @notice This Contract is used for donation and store the donation data
  * @custom:experimental This is an experimental contract
  */
-
 contract Donate {
     /**
      * @notice Donation Record Struct to record donation data
@@ -111,13 +111,14 @@ contract Donate {
         require(allowedDonationToken[_token], "Donate: token not allowed");
         require(_amount > 0, "Donate: amount must be greater than 0");
 
-        uint256 _vaultIndex =
-            IVault(vaultContract).depositToVault(_to, msg.sender, _amount, _token, donatedAmount[msg.sender].length);
-        require(_vaultIndex >= 0, "Donate: deposit failed");
-
-        // Calculate the net amount ( amount - platform fees )
         uint256 _platformAmount = (_amount * platformFees / 100);
         uint256 _netAmount = _amount - _platformAmount;
+
+        require(IERC20(_token).transferFrom(msg.sender, platformAddress, _platformAmount), "Donate: transfer failed");
+        uint256 _vaultIndex =
+            IVault(vaultContract).depositToVault(_to, msg.sender, _netAmount, _token, donatedAmount[msg.sender].length);
+        require(_vaultIndex >= 0, "Donate: deposit failed");
+
         DonationRecord memory _donationRecord = DonationRecord({
             to: _to,
             amount: _netAmount,
@@ -258,19 +259,24 @@ contract Donate {
         uint256 _yield = 0;
         uint256 _yieldFromVault = 0;
         uint256 _unClaimedPercentage = 0;
-        for (uint256 i = donatedAmount[_user].length - 1; i >= 0; i--) {
+        for (int256 i = int256(donatedAmount[_user].length) - 1; i >= 0; i--) {
+            uint256 index = uint256(i);
+            _yieldFromVault = 0;
             if (
-                donatedAmount[_user][i].claimed == donatedAmount[_user][i].amount
-                    && donatedAmount[_user][i].lockedDonaturYield == 0
+                donatedAmount[_user][index].claimed == donatedAmount[_user][index].amount
+                    && donatedAmount[_user][index].lockedDonaturYield == 0
             ) break;
-            _yieldFromVault += IVault(vaultContract).getYieldByIndex(_user, donatedAmount[_user][i].vaultIndex);
-            _unClaimedPercentage = (donatedAmount[_user][i].amount - donatedAmount[_user][i].claimed) / 1e18;
-            _yieldFromVault = _yieldFromVault * _unClaimedPercentage / 100;
-            _yield += donatedAmount[_user][i].lockedDonaturYield > 0
+            _yieldFromVault += IVault(vaultContract).getYieldByIndex(
+                donatedAmount[_user][index].to, donatedAmount[_user][index].vaultIndex
+            );
+            _unClaimedPercentage = (donatedAmount[_user][index].amount - donatedAmount[_user][index].claimed) * 100
+                / donatedAmount[_user][index].amount;
+            _yieldFromVault *= _unClaimedPercentage / 100;
+            _yield += donatedAmount[_user][index].lockedDonaturYield > 0
                 ? _yieldFromVault
                 : ((_yieldFromVault * yieldPercentage) / 100);
         }
-        // return percentage of yield
+
         return _yield;
     }
 
