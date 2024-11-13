@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/IVault.sol";
+import "./interfaces/ISUSDE.sol";
 
 /**
  * @title Donate
@@ -12,25 +12,25 @@ import "./interfaces/IVault.sol";
  */
 contract Donate {
     /**
-     * @notice Donation Record Struct to record donation data
+     * @notice Gifters Record Struct to Gifter data
      */
-    struct DonationRecord {
-        address to; // creator wallet address
-        uint256 amount; // donation amount
-        address token; // donation token address
-        uint256 vaultIndex; // index array of locked token in vault contract
-        uint256 claimed; // claimed amount of donation
-        uint256 grossAmount; // gross amount of donation
-        uint256 lockedDonaturYield; // Donatur Yield Locked Value (when creator claim, the donatur yield portion will be store here)
+    struct GiftersRecord {
+        uint256 donatedAmount; // donation amount deducted by platform fees
+        uint256 totalShares; // total shares of donation
+        uint256 inactiveYield; // Yield amount from withraw donation
+        uint256 grossDonatedAmount; // gross amount of donation
     }
-    /**
-     * @notice Donatur Struct to record donatur data
-     */
 
-    struct Donatur {
-        address donatur; // donatur wallet address
-        uint256 amount; // donation amount
-        address token; // donation token address
+    struct CreatorsRecord {
+        uint256 totalDonation; // total donation amount
+        uint256 claimableShares; // claimable donation amount
+    }
+
+    struct LockedBalances {
+        address creatorAddress;
+        uint256 shares;
+        uint256 lockUntil;
+        bool unlocked;
     }
 
     /**
@@ -58,27 +58,32 @@ contract Donate {
      */
     uint256 public creatorPercentage = 30;
     /**
-     * @notice yield Percentage (fixed to 75%), this is donatur yield percentage for cashback
+     * @notice yield Percentage (fixed to 70%), this is donatur yield percentage for cashback
      */
-    uint256 public yieldPercentage = 75;
+    uint256 public gifterPercentage = 70;
+
+    /**
+     * @notice lock period for donation (fixed to 30 days) in seconds
+     */
+    uint256 public lockPeriod = 1987200;
+
+    LockedBalances[] public lockedBalances;
 
     event Donation(address indexed donor, uint256 amount);
     event WithdrawDonation(address indexed donor, uint256 amount);
     event addAllowedDonationTokenEvent(address indexed token);
     event removeAllowedDonationTokenEvent(address indexed token);
 
+    error DONATE__NOT_ALLOWED_TOKEN(address token);
+    error DONATE__AMOUNT_ZERO();
+    error DONATE__INSUFFICIENT_BALANCE(address wallet);
+    error DONATE__WALLET_NOT_ALLOWED(address wallet);
+
     /**
      * @notice Donation Mapping to store donation data
      */
-    mapping(address => mapping(address => uint256)) public donations;
-    /**
-     * @notice Donated Record for each donatur based on donatur wallet address as a key
-     */
-    mapping(address => DonationRecord[]) public donatedAmount;
-    /**
-     * @notice Donatur Mapping to store donatur data based creator address as a key
-     */
-    mapping(address => Donatur[]) public donatur;
+    mapping(address => GiftersRecord) public gifters;
+    mapping(address => CreatorsRecord) public creators;
     /**
      * @notice Allowed Donation Token Mapping to store allowed donation token
      */
@@ -87,18 +92,17 @@ contract Donate {
      * @notice Allowed Donation Token Array to store allowed donation token
      */
     address[] public allowedDonationTokens;
-    /**
-     * @notice Vault Contract Address
-     */
-    address public vaultContract;
+
+    ISUSDE public sUSDeToken;
 
     /**
      * @notice Constructor to initialize owner and platform address
      * @param _platformAddress platform wallet address to receive platform fees
      */
-    constructor(address _platformAddress) {
+    constructor(address _platformAddress, address _sUSDeToken) {
         owner = msg.sender;
         platformAddress = _platformAddress;
+        sUSDeToken = ISUSDE(_sUSDeToken);
     }
 
     /**
@@ -108,69 +112,64 @@ contract Donate {
      * @param _token donation token address (ex: USDe)
      */
     function donate(uint256 _amount, address _to, address _token) external {
-        require(allowedDonationToken[_token], "Donate: token not allowed");
-        require(_amount > 0, "Donate: amount must be greater than 0");
+        if (_amount == 0) revert DONATE__AMOUNT_ZERO();
+        if (!allowedDonationToken[_token]) revert DONATE__NOT_ALLOWED_TOKEN(_token);
 
-        uint256 _platformAmount = (_amount * platformFees / 100);
-        uint256 _netAmount = _amount - _platformAmount;
+        IERC20 donationToken = IERC20(_token);
+        if (donationToken.balanceOf(msg.sender) < _amount) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
 
-        require(IERC20(_token).transferFrom(msg.sender, platformAddress, _platformAmount), "Donate: transfer failed");
-        uint256 _vaultIndex =
-            IVault(vaultContract).depositToVault(_to, msg.sender, _netAmount, _token, donatedAmount[msg.sender].length);
-        require(_vaultIndex >= 0, "Donate: deposit failed");
+        uint256 _platformFees = (_amount * platformFees) / 100;
+        uint256 _netAmount = _amount - _platformFees;
+        uint256 _gifterAmount = (_netAmount * gifterPercentage) / 100;
+        uint256 _netShares = sUSDeToken.convertToShares(_netAmount);
+        uint256 _gifterShares = sUSDeToken.convertToShares(_gifterAmount);
 
-        DonationRecord memory _donationRecord = DonationRecord({
-            to: _to,
-            amount: _netAmount,
-            token: _token,
-            vaultIndex: _vaultIndex,
-            claimed: 0,
-            grossAmount: _amount,
-            lockedDonaturYield: 0
-        });
-        Donatur memory _donatur = Donatur({donatur: msg.sender, amount: _netAmount, token: _token});
+        gifters[msg.sender].donatedAmount += _gifterAmount;
+        gifters[msg.sender].totalShares += _gifterShares;
+        gifters[msg.sender].grossDonatedAmount += _amount;
+        gifters[msg.sender].inactiveYield += 0;
 
-        donatedAmount[msg.sender].push(_donationRecord);
-        donatur[_to].push(_donatur);
+        creators[_to].totalDonation += _netAmount;
 
-        donations[_to][_token] += _amount;
-        totalDonations += _amount;
+        lockedBalances.push(
+            LockedBalances({
+                creatorAddress: _to,
+                shares: _netShares,
+                lockUntil: block.timestamp + lockPeriod,
+                unlocked: false
+            })
+        );
 
+        donationToken.transferFrom(msg.sender, platformAddress, _platformFees);
+        sUSDeToken.deposit(sUSDeToken.convertToShares(_netAmount), address(this));
+
+        updateLockedBalances();
         emit Donation(msg.sender, _amount);
+    }
+
+    function updateLockedBalances() private {
+        for (uint256 i = 0; i < lockedBalances.length; i++) {
+            if (lockedBalances[i].lockUntil > block.timestamp) break;
+            if (lockedBalances[i].lockUntil < block.timestamp && !lockedBalances[i].unlocked) {
+                lockedBalances[i].unlocked = true;
+                creators[lockedBalances[i].creatorAddress].claimableShares += lockedBalances[i].shares;
+            }
+        }
     }
 
     /**
      * @notice Withdraw function to withdraw donation from creator
-     * @param _amount Amount of token to withdraw
-     * @param _token token contract address to withdraw
+     * @param _shares Amount of token to withdraw
      */
-    function withdraw(uint256 _amount, address _token) external {
-        require(allowedDonationToken[_token], "Donate: token not allowed");
+    function creatorWithdraw(uint256 _shares) external {
+        if (_shares == 0) revert DONATE__AMOUNT_ZERO();
+        if (creators[msg.sender].claimableShares < _shares) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
 
-        IVault(vaultContract).withdrawFromVault(msg.sender, _amount, _token);
+        uint256 _assets = sUSDeToken.convertToAssets(_shares);
+        uint256 _gifterShares = _shares * gifterPercentage / 100;
 
-        totalWithdraw += _amount;
-        emit WithdrawDonation(msg.sender, _amount);
-    }
-
-    /**
-     * @notice get total creator donation based on creator wallet address
-     * @param _user creator address
-     * @return length total donation record data count
-     */
-    function getTotalDonations(address _user) external view returns (uint256) {
-        return donatur[_user].length;
-    }
-
-    /**
-     * @notice get Donatur Data based on creator wallet address and index of donatur array
-     * @param _user creator wallet address
-     * @param _index index of donatur array
-     * @return _donatur donatur wallet address
-     * @return _amount donation amount
-     */
-    function getDonaturData(address _user, uint256 _index) external view returns (address, uint256) {
-        return (donatur[_user][_index].donatur, donatur[_user][_index].amount);
+        sUSDeToken.cooldownShares(_shares);
+        emit WithdrawDonation(msg.sender, _shares);
     }
 
     /**
@@ -178,7 +177,7 @@ contract Donate {
      * @param _token token contract address
      */
     function addAllowedDonationToken(address _token) external {
-        require(msg.sender == owner, "Donate: only owner can add token");
+        if (msg.sender != owner) revert DONATE__WALLET_NOT_ALLOWED(msg.sender);
         allowedDonationToken[_token] = true;
         allowedDonationTokens.push(_token);
 
@@ -190,7 +189,7 @@ contract Donate {
      * @param _newOwner new owner address
      */
     function changeOwner(address _newOwner) external {
-        require(msg.sender == owner, "Donate: only owner can change owner");
+        if (msg.sender != owner) revert DONATE__WALLET_NOT_ALLOWED(msg.sender);
         owner = _newOwner;
     }
 
@@ -199,7 +198,7 @@ contract Donate {
      * @param _token token contract address
      */
     function removeAllowedDonationToken(address _token) external {
-        require(msg.sender == owner, "Donate: only owner can remove token");
+        if (msg.sender != owner) revert DONATE__WALLET_NOT_ALLOWED(msg.sender);
         allowedDonationToken[_token] = false;
 
         uint256 _removedIndex = allowedDonationTokens.length;
@@ -210,7 +209,7 @@ contract Donate {
             }
         }
 
-        require(_removedIndex < allowedDonationTokens.length, "Donate: token not found");
+        if (_removedIndex == allowedDonationTokens.length) revert DONATE__NOT_ALLOWED_TOKEN(_token);
 
         for (uint256 i = _removedIndex; i < allowedDonationTokens.length - 1; i++) {
             allowedDonationTokens[i] = allowedDonationTokens[i + 1];
@@ -231,96 +230,18 @@ contract Donate {
     }
 
     /**
-     * @notice function to update vault contract address
-     * @param _vaultContract new vault contract address
-     */
-    function updateVaultContract(address _vaultContract) external {
-        require(msg.sender == owner, "Donate: only owner can update vault contract");
-        vaultContract = _vaultContract;
-    }
-
-    /**
-     * @notice function to update total withdraw amount from vault
-     * @param _amount amount of token to update
-     * @return status status of update total withdraw
-     */
-    function updateTotalWithdrawFromVault(uint256 _amount) external returns (bool) {
-        require(msg.sender == vaultContract, "Donate: only vault contract can update total withdraw");
-        totalWithdraw += _amount;
-        return true;
-    }
-
-    /**
      * @notice function to get yield amount from active donation user
      * @param _user user wallet address
      * @return _yield yield amount deducted by yeild percentage
      */
     function getYield(address _user) external view returns (uint256) {
-        uint256 _yield = 0;
-        uint256 _yieldFromVault = 0;
-        uint256 _unClaimedPercentage = 0;
-        for (int256 i = int256(donatedAmount[_user].length) - 1; i >= 0; i--) {
-            uint256 index = uint256(i);
-            _yieldFromVault = 0;
-            if (
-                donatedAmount[_user][index].claimed == donatedAmount[_user][index].amount
-                    && donatedAmount[_user][index].lockedDonaturYield == 0
-            ) break;
-            _yieldFromVault += IVault(vaultContract).getYieldByIndex(
-                donatedAmount[_user][index].to, donatedAmount[_user][index].vaultIndex
-            );
-            _unClaimedPercentage = (donatedAmount[_user][index].amount - donatedAmount[_user][index].claimed) * 100
-                / donatedAmount[_user][index].amount;
-            _yieldFromVault *= _unClaimedPercentage / 100;
-            _yield += donatedAmount[_user][index].lockedDonaturYield > 0
-                ? _yieldFromVault
-                : ((_yieldFromVault * yieldPercentage) / 100);
-        }
-
+        uint256 _totalUSDE = sUSDeToken.previewRedeem(gifters[_user].totalShares);
+        uint256 _yield = gifters[_user].inactiveYield + (_totalUSDE - gifters[_user].donatedAmount);
         return _yield;
     }
 
-    /**
-     * @notice function to update donate record at Donate smartcontract
-     * @param _user donatur wallet address
-     * @param _index index of Donatur Record array
-     * @param _claimed amount claimed token by creator
-     * @param _lockedDonaturYield donatur yield locked amount
-     */
-    function updateDonatedAmount(address _user, uint256 _index, uint256 _claimed, uint256 _lockedDonaturYield)
-        external
-    {
-        require(msg.sender == vaultContract, "Donate: only vault contract can update donated amount");
-        donatedAmount[_user][_index].claimed = _claimed;
-        donatedAmount[_user][_index].lockedDonaturYield = _lockedDonaturYield;
-    }
-    /**
-     * @notice function is used to withdraw all donatur yield from vault
-     */
-
-    function withdrawDonaturYield() external {
-        uint256 _yield = 0;
-        uint256 _yieldFromVault = 0;
-        uint256 _unClaimedPercentage = 0;
-        for (int256 i = int256(donatedAmount[msg.sender].length) - 1; i >= 0; i--) {
-            uint256 _index = uint256(i);
-            if (
-                donatedAmount[msg.sender][_index].claimed == donatedAmount[msg.sender][_index].amount
-                    && donatedAmount[msg.sender][_index].lockedDonaturYield == 0
-            ) break;
-            _yieldFromVault +=
-                IVault(vaultContract).getYieldByIndex(msg.sender, donatedAmount[msg.sender][_index].vaultIndex);
-            _unClaimedPercentage =
-                (donatedAmount[msg.sender][_index].amount - donatedAmount[msg.sender][_index].claimed) / 1e18;
-            _yieldFromVault = _yieldFromVault * _unClaimedPercentage / 100;
-            _yield += donatedAmount[msg.sender][_index].lockedDonaturYield > 0
-                ? _yieldFromVault
-                : ((_yieldFromVault * yieldPercentage) / 100);
-
-            donatedAmount[msg.sender][_index].lockedDonaturYield = 0;
-        }
-
-        require(_yield > 0, "Donate: no yield to withdraw");
-        require(IVault(vaultContract).withdrawYield(msg.sender, _yield), "Donate: withdraw yield failed");
+    function updateSUSDeToken(address _sUSDeToken) external {
+        if (msg.sender != owner) revert DONATE__WALLET_NOT_ALLOWED(msg.sender);
+        sUSDeToken = ISUSDE(_sUSDeToken);
     }
 }
