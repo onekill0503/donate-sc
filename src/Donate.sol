@@ -302,20 +302,22 @@ contract Donate {
         uint256 _yield = 0;
         uint256 _yieldFromVault = 0;
         uint256 _unClaimedPercentage = 0;
-        for (uint256 i = donatedAmount[msg.sender].length - 1; i >= 0; i--) {
+        for (int256 i = int256(donatedAmount[msg.sender].length) - 1; i >= 0; i--) {
+            uint256 _index = uint256(i);
             if (
-                donatedAmount[msg.sender][i].claimed == donatedAmount[msg.sender][i].amount
-                    && donatedAmount[msg.sender][i].lockedDonaturYield == 0
+                donatedAmount[msg.sender][_index].claimed == donatedAmount[msg.sender][_index].amount
+                    && donatedAmount[msg.sender][_index].lockedDonaturYield == 0
             ) break;
             _yieldFromVault +=
-                IVault(vaultContract).getYieldByIndex(msg.sender, donatedAmount[msg.sender][i].vaultIndex);
-            _unClaimedPercentage = (donatedAmount[msg.sender][i].amount - donatedAmount[msg.sender][i].claimed) / 1e18;
+                IVault(vaultContract).getYieldByIndex(msg.sender, donatedAmount[msg.sender][_index].vaultIndex);
+            _unClaimedPercentage =
+                (donatedAmount[msg.sender][_index].amount - donatedAmount[msg.sender][_index].claimed) / 1e18;
             _yieldFromVault = _yieldFromVault * _unClaimedPercentage / 100;
-            _yield += donatedAmount[msg.sender][i].lockedDonaturYield > 0
+            _yield += donatedAmount[msg.sender][_index].lockedDonaturYield > 0
                 ? _yieldFromVault
                 : ((_yieldFromVault * yieldPercentage) / 100);
 
-            donatedAmount[msg.sender][i].lockedDonaturYield = 0;
+            donatedAmount[msg.sender][_index].lockedDonaturYield = 0;
         }
 
         require(_yield > 0, "Donate: no yield to withdraw");
