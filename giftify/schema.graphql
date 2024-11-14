@@ -1,0 +1,33 @@
+type ClaimDonation @entity(immutable: true) {
+  id: Bytes!
+  donor: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Donation @entity(immutable: true) {
+  id: Bytes!
+  donor: Bytes! # address
+  amount: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type addAllowedDonationTokenEvent @entity(immutable: true) {
+  id: Bytes!
+  token: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type removeAllowedDonationTokenEvent @entity(immutable: true) {
+  id: Bytes!
+  token: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
