@@ -3,7 +3,7 @@ import {
   Donation as DonationEvent,
   addAllowedDonationTokenEvent as addAllowedDonationTokenEventEvent,
   removeAllowedDonationTokenEvent as removeAllowedDonationTokenEventEvent
-} from "../generated/Donate/Donate"
+} from "../generated/Contract/Contract"
 import {
   ClaimDonation,
   Donation,

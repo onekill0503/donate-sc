@@ -5,12 +5,12 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum
-    name: Donate
+    name: Contract
     network: 127.0.0.1:8545
     source:
       address: "0xc535711468ED0c21e4B6E0033C4852a1A0cd5848"
-      abi: Donate
-      startBlock: 2617079
+      abi: Contract
+      startBlock: 2571410
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -21,8 +21,8 @@ dataSources:
         - addAllowedDonationTokenEvent
         - removeAllowedDonationTokenEvent
       abis:
-        - name: Donate
-          file: ./abis/Donate.json
+        - name: Contract
+          file: ./abis/Contract.json
       eventHandlers:
         - event: ClaimDonation(indexed address,uint256)
           handler: handleClaimDonation
@@ -32,4 +32,4 @@ dataSources:
           handler: handleaddAllowedDonationTokenEvent
         - event: removeAllowedDonationTokenEvent(indexed address)
           handler: handleremoveAllowedDonationTokenEvent
-      file: ./src/donate.ts
+      file: ./src/contract.ts

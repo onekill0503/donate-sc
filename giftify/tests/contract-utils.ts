@@ -5,7 +5,7 @@ import {
   Donation,
   addAllowedDonationTokenEvent,
   removeAllowedDonationTokenEvent
-} from "../generated/Donate/Donate"
+} from "../generated/Contract/Contract"
 
 export function createClaimDonationEvent(
   donor: Address,
