@@ -74,12 +74,17 @@ contract Donate is Ownable {
     bytes32 public merkleRoot;
 
     event NewDonation(
-        address indexed gifter, uint256 grossAmount, uint256 netAmount, address indexed creator, uint256 gifterShares
+        address indexed gifter,
+        uint256 grossAmount,
+        uint256 netAmount,
+        address indexed creator,
+        uint256 gifterShares,
+        uint256 timestamp
     );
-    event InitiateWithdraw(address indexed creator, uint256 shares);
-    event ClaimReward(address indexed user, uint256 amount);
-    event addAllowedDonationTokenEvent(address indexed token);
-    event removeAllowedDonationTokenEvent(address indexed token);
+    event InitiateWithdraw(address indexed creator, uint256 shares, uint256 timestamp);
+    event ClaimReward(address indexed user, uint256 amount, uint256 timestamp);
+    event addAllowedDonationTokenEvent(address indexed token, uint256 timestamp);
+    event removeAllowedDonationTokenEvent(address indexed token, uint256 timestamp);
 
     error DONATE__NOT_ALLOWED_TOKEN(address token);
     error DONATE__AMOUNT_ZERO();
@@ -161,7 +166,7 @@ contract Donate is Ownable {
         sUSDeToken.approve(address(sUSDeToken), _netShares);
         sUSDeToken.deposit(sUSDeToken.convertToShares(_netAmount), address(this));
 
-        emit NewDonation(msg.sender, _amount, _netAmount, _to, _gifterShares);
+        emit NewDonation(msg.sender, _amount, _netAmount, _to, _gifterShares, block.timestamp);
     }
 
     /**
@@ -174,7 +179,7 @@ contract Donate is Ownable {
 
         batchWithdrawAmount += _shares;
 
-        emit InitiateWithdraw(msg.sender, _shares);
+        emit InitiateWithdraw(msg.sender, _shares, block.timestamp);
     }
 
     /**
@@ -205,7 +210,7 @@ contract Donate is Ownable {
         allowedDonationToken[_token] = true;
         allowedDonationTokens.push(_token);
 
-        emit addAllowedDonationTokenEvent(_token);
+        emit addAllowedDonationTokenEvent(_token, block.timestamp);
     }
 
     /**
@@ -239,7 +244,7 @@ contract Donate is Ownable {
 
         allowedDonationTokens.pop();
 
-        emit removeAllowedDonationTokenEvent(_token);
+        emit removeAllowedDonationTokenEvent(_token, block.timestamp);
     }
 
     /**
@@ -280,6 +285,6 @@ contract Donate is Ownable {
         bool isValidProof = MerkleProof.verify(_proof, merkleRoot, keccak256(abi.encodePacked(msg.sender, _amount)));
         if (!isValidProof) revert DONATE__INVALID_MERKLE_PROOF();
         uSDeToken.transfer(msg.sender, _amount);
-        emit ClaimReward(msg.sender, _amount);
+        emit ClaimReward(msg.sender, _amount, block.timestamp);
     }
 }
