@@ -1,0 +1,18 @@
+{
+    "version": "1",
+    "name": "giftify",
+    "abis": {
+      "giftify": {
+        "path": "./abis/Donate.json"
+      }
+    },
+    "instances": [
+      {
+        "abi": "giftify",
+        "address": "0xc535711468ED0c21e4B6E0033C4852a1A0cd5848",
+        "startBlock": 1908307,
+        "chain": "ink-sepolia"
+      }
+    ]
+  }
+  

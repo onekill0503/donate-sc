@@ -62,13 +62,6 @@ contract Donate {
      */
     uint256 public gifterPercentage = 70;
 
-    /**
-     * @notice lock period for donation (fixed to 30 days) in seconds
-     */
-    uint256 public lockPeriod = 1987200;
-
-    LockedBalances[] public lockedBalances;
-
     event Donation(address indexed donor, uint256 amount);
     event WithdrawDonation(address indexed donor, uint256 amount);
     event addAllowedDonationTokenEvent(address indexed token);
@@ -130,31 +123,12 @@ contract Donate {
         gifters[msg.sender].inactiveYield += 0;
 
         creators[_to].totalDonation += _netAmount;
-
-        lockedBalances.push(
-            LockedBalances({
-                creatorAddress: _to,
-                shares: _netShares,
-                lockUntil: block.timestamp + lockPeriod,
-                unlocked: false
-            })
-        );
+        creators[_to].claimableShares += _netShares;
 
         donationToken.transferFrom(msg.sender, platformAddress, _platformFees);
         sUSDeToken.deposit(sUSDeToken.convertToShares(_netAmount), address(this));
 
-        updateLockedBalances();
         emit Donation(msg.sender, _amount);
-    }
-
-    function updateLockedBalances() private {
-        for (uint256 i = 0; i < lockedBalances.length; i++) {
-            if (lockedBalances[i].lockUntil > block.timestamp) break;
-            if (lockedBalances[i].lockUntil < block.timestamp && !lockedBalances[i].unlocked) {
-                lockedBalances[i].unlocked = true;
-                creators[lockedBalances[i].creatorAddress].claimableShares += lockedBalances[i].shares;
-            }
-        }
     }
 
     /**
