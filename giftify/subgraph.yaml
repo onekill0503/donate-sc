@@ -6,7 +6,7 @@ schema:
 dataSources:
   - kind: ethereum
     name: Donate
-    network: https://rpc-gel-sepolia.inkonchain.com
+    network: 127.0.0.1:8545
     source:
       address: "0xc535711468ED0c21e4B6E0033C4852a1A0cd5848"
       abi: Donate
