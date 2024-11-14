@@ -147,6 +147,8 @@ contract Donate is Ownable {
         creators[_to].claimableShares += _netShares;
 
         donationToken.transferFrom(msg.sender, platformAddress, _platformFees);
+        donationToken.transferFrom(msg.sender, address(this), _amount);
+        sUSDeToken.approve(address(sUSDeToken), _netShares);
         sUSDeToken.deposit(sUSDeToken.convertToShares(_netAmount), address(this));
 
         emit NewDonation(msg.sender, _amount, _netAmount, _to, _gifterShares);
