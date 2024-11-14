@@ -20,6 +20,7 @@ contract Donate is Ownable {
         uint256 donatedAmount; // donation amount deducted by platform fees
         uint256 totalShares; // total shares of donation
         uint256 grossDonatedAmount; // gross amount of donation
+        uint256 lastClaimed; // last claimed timestamp
     }
     /**
      * @notice Creators Record Struct to Creator data
@@ -28,6 +29,7 @@ contract Donate is Ownable {
     struct CreatorsRecord {
         uint256 totalDonation; // total donation amount
         uint256 claimableShares; // claimable donation amount
+        uint256 lastClaimed; // last claimed timestamp
     }
 
     /**
@@ -71,6 +73,7 @@ contract Donate is Ownable {
         address indexed gifter, uint256 grossAmount, uint256 netAmount, address indexed creator, uint256 gifterShares
     );
     event InitiateWithdraw(address indexed creator, uint256 shares);
+    event ClaimReward(address indexed user, uint256 amount);
     event addAllowedDonationTokenEvent(address indexed token);
     event removeAllowedDonationTokenEvent(address indexed token);
 
@@ -85,6 +88,9 @@ contract Donate is Ownable {
      * @notice Donation Mapping to store donation data
      */
     mapping(address => GiftersRecord) public gifters;
+    /**
+     * @notice Creators Mapping to store creator data
+     */
     mapping(address => CreatorsRecord) public creators;
     /**
      * @notice Allowed Donation Token Mapping to store allowed donation token
@@ -269,5 +275,6 @@ contract Donate is Ownable {
         bool isValidProof = MerkleProof.verify(_proof, merkleRoot, keccak256(abi.encodePacked(msg.sender, _amount)));
         if (!isValidProof) revert DONATE__INVALID_MERKLE_PROOF();
         uSDeToken.transfer(msg.sender, _amount);
+        emit ClaimReward(msg.sender, _amount);
     }
 }
