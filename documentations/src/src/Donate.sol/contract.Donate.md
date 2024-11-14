@@ -1,5 +1,8 @@
 # Donate
-[Git Source](https://github.com/onekill0503/donate-sc/blob/a078220bd4d81597f10b7d396efe342f73180a17/src\Donate.sol)
+[Git Source](https://github.com/onekill0503/donate-sc/blob/c651947d75ba95d6ea162a0584ab79c01ebd96d1/src\Donate.sol)
+
+**Inherits:**
+Ownable
 
 **Author:**
 To De Moon Team
@@ -26,15 +29,6 @@ Variables to store total withdraw
 
 ```solidity
 uint256 public totalWithdraw;
-```
-
-
-### owner
-Variables to store owner address
-
-
-```solidity
-address public owner;
 ```
 
 
@@ -65,39 +59,55 @@ uint256 public creatorPercentage = 30;
 ```
 
 
-### yieldPercentage
-yield Percentage (fixed to 75%), this is donatur yield percentage for cashback
+### gifterPercentage
+yield Percentage (fixed to 70%), this is donatur yield percentage for cashback
 
 
 ```solidity
-uint256 public yieldPercentage = 75;
+uint256 public gifterPercentage = 70;
 ```
 
 
-### donations
+### batchWithdrawAmount
+batchWithdrawAmount to store total amount to batch withdraw
+
+
+```solidity
+uint256 public batchWithdrawAmount = 0;
+```
+
+
+### batchWithdrawMin
+batchWithdrawMin to store minimum amount to batch withdraw
+
+
+```solidity
+uint256 public batchWithdrawMin = 500e18;
+```
+
+
+### merkleRoot
+Merkle Root Hash to store merkle root hash
+
+
+```solidity
+bytes32 public merkleRoot;
+```
+
+
+### gifters
 Donation Mapping to store donation data
 
 
 ```solidity
-mapping(address => mapping(address => uint256)) public donations;
+mapping(address => GiftersRecord) public gifters;
 ```
 
 
-### donatedAmount
-Donated Record for each donatur based on donatur wallet address as a key
-
+### creators
 
 ```solidity
-mapping(address => DonationRecord[]) public donatedAmount;
-```
-
-
-### donatur
-Donatur Mapping to store donatur data based creator address as a key
-
-
-```solidity
-mapping(address => Donatur[]) public donatur;
+mapping(address => CreatorsRecord) public creators;
 ```
 
 
@@ -119,12 +129,21 @@ address[] public allowedDonationTokens;
 ```
 
 
-### vaultContract
-Vault Contract Address
+### sUSDeToken
+sUSDe token address with ISUSDE interface
 
 
 ```solidity
-address public vaultContract;
+ISUSDE public sUSDeToken;
+```
+
+
+### uSDeToken
+USDe token address with IERC20 interface
+
+
+```solidity
+IERC20 public uSDeToken;
 ```
 
 
@@ -135,13 +154,29 @@ Constructor to initialize owner and platform address
 
 
 ```solidity
-constructor(address _platformAddress);
+constructor(address _platformAddress, address _sUSDeToken) Ownable(msg.sender);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
 |`_platformAddress`|`address`|platform wallet address to receive platform fees|
+|`_sUSDeToken`|`address`||
+
+
+### setMerkleRoot
+
+Function to set merkle root hash (only owner can set)
+
+
+```solidity
+function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`_merkleRoot`|`bytes32`|merkle root hash|
 
 
 ### donate
@@ -161,65 +196,38 @@ function donate(uint256 _amount, address _to, address _token) external;
 |`_token`|`address`|donation token address (ex: USDe)|
 
 
-### withdraw
+### initiateWithdraw
 
 Withdraw function to withdraw donation from creator
 
 
 ```solidity
-function withdraw(uint256 _amount, address _token) external;
+function initiateWithdraw(uint256 _shares) external;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`_amount`|`uint256`|Amount of token to withdraw|
-|`_token`|`address`|token contract address to withdraw|
+|`_shares`|`uint256`|Amount of token to withdraw|
 
 
-### getTotalDonations
+### batchWithdraw
 
-get total creator donation based on creator wallet address
+Function to batch withdraw all donation token from contract
 
 
 ```solidity
-function getTotalDonations(address _user) external view returns (uint256);
+function batchWithdraw() external onlyOwner;
 ```
-**Parameters**
 
-|Name|Type|Description|
-|----|----|-----------|
-|`_user`|`address`|creator address|
+### unstakeBatchWithdraw
 
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`uint256`|length total donation record data count|
-
-
-### getDonaturData
-
-get Donatur Data based on creator wallet address and index of donatur array
+Function to unstake and withdraw all donation token from contract
 
 
 ```solidity
-function getDonaturData(address _user, uint256 _index) external view returns (address, uint256);
+function unstakeBatchWithdraw() external onlyOwner;
 ```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`_user`|`address`|creator wallet address|
-|`_index`|`uint256`|index of donatur array|
-
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`address`|_donatur donatur wallet address|
-|`<none>`|`uint256`|_amount donation amount|
-
 
 ### addAllowedDonationToken
 
@@ -227,7 +235,7 @@ Function to add allowed donation token
 
 
 ```solidity
-function addAllowedDonationToken(address _token) external;
+function addAllowedDonationToken(address _token) external onlyOwner;
 ```
 **Parameters**
 
@@ -242,7 +250,7 @@ Function to change owner of the contract
 
 
 ```solidity
-function changeOwner(address _newOwner) external;
+function changeOwner(address _newOwner) external onlyOwner;
 ```
 **Parameters**
 
@@ -257,7 +265,7 @@ Function to remove allowed donation token
 
 
 ```solidity
-function removeAllowedDonationToken(address _token) external;
+function removeAllowedDonationToken(address _token) external onlyOwner;
 ```
 **Parameters**
 
@@ -287,63 +295,6 @@ function isTokenAllowed(address _token) external view returns (bool);
 |`<none>`|`bool`|status status of token is allowed or not|
 
 
-### isActiveUser
-
-function to check is user an active user or not
-
-
-```solidity
-function isActiveUser(address _user) external view returns (bool);
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`_user`|`address`|user wallet address|
-
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`bool`|status status of user is active or not|
-
-
-### updateVaultContract
-
-function to update vault contract address
-
-
-```solidity
-function updateVaultContract(address _vaultContract) external;
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`_vaultContract`|`address`|new vault contract address|
-
-
-### updateTotalWithdrawFromVault
-
-function to update total withdraw amount from vault
-
-
-```solidity
-function updateTotalWithdrawFromVault(uint256 _amount) external returns (bool);
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`_amount`|`uint256`|amount of token to update|
-
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`bool`|status status of update total withdraw|
-
-
 ### getYield
 
 function to get yield amount from active donation user
@@ -365,44 +316,51 @@ function getYield(address _user) external view returns (uint256);
 |`<none>`|`uint256`|_yield yield amount deducted by yeild percentage|
 
 
-### updateDonatedAmount
+### updateToken
 
-function to update donate record at Donate smartcontract
+function to update SUSDE token address
 
 
 ```solidity
-function updateDonatedAmount(address _user, uint256 _index, uint256 _claimed, uint256 _lockedDonaturYield) external;
+function updateToken(address _sUSDeToken, address _USDeToken) external onlyOwner;
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`_user`|`address`|donatur wallet address|
-|`_index`|`uint256`|index of Donatur Record array|
-|`_claimed`|`uint256`|amount claimed token by creator|
-|`_lockedDonaturYield`|`uint256`|donatur yield locked amount|
+|`_sUSDeToken`|`address`|sUSDe token address|
+|`_USDeToken`|`address`||
 
 
-### withdrawDonaturYield
+### claim
 
-function is used to withdraw all donatur yield from vault
+function to claim token
 
 
 ```solidity
-function withdrawDonaturYield() external;
+function claim(uint256 _amount, bytes32[] calldata _proof) external;
 ```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`_amount`|`uint256`|amount to claim|
+|`_proof`|`bytes32[]`|merkle proof|
+
 
 ## Events
-### Donation
+### NewDonation
 
 ```solidity
-event Donation(address indexed donor, uint256 amount);
+event NewDonation(
+    address indexed gifter, uint256 grossAmount, uint256 netAmount, address indexed creator, uint256 gifterShares
+);
 ```
 
-### WithdrawDonation
+### InitiateWithdraw
 
 ```solidity
-event WithdrawDonation(address indexed donor, uint256 amount);
+event InitiateWithdraw(address indexed creator, uint256 shares);
 ```
 
 ### addAllowedDonationTokenEvent
@@ -417,32 +375,64 @@ event addAllowedDonationTokenEvent(address indexed token);
 event removeAllowedDonationTokenEvent(address indexed token);
 ```
 
+## Errors
+### DONATE__NOT_ALLOWED_TOKEN
+
+```solidity
+error DONATE__NOT_ALLOWED_TOKEN(address token);
+```
+
+### DONATE__AMOUNT_ZERO
+
+```solidity
+error DONATE__AMOUNT_ZERO();
+```
+
+### DONATE__INSUFFICIENT_BALANCE
+
+```solidity
+error DONATE__INSUFFICIENT_BALANCE(address wallet);
+```
+
+### DONATE__WALLET_NOT_ALLOWED
+
+```solidity
+error DONATE__WALLET_NOT_ALLOWED(address wallet);
+```
+
+### DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED
+
+```solidity
+error DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED(uint256 batchWithdrawAmount);
+```
+
+### DONATE__INVALID_MERKLE_PROOF
+
+```solidity
+error DONATE__INVALID_MERKLE_PROOF();
+```
+
 ## Structs
-### DonationRecord
-Donation Record Struct to record donation data
+### GiftersRecord
+Gifters Record Struct to Gifter data
 
 
 ```solidity
-struct DonationRecord {
-    address to;
-    uint256 amount;
-    address token;
-    uint256 vaultIndex;
-    uint256 claimed;
-    uint256 grossAmount;
-    uint256 lockedDonaturYield;
+struct GiftersRecord {
+    uint256 donatedAmount;
+    uint256 totalShares;
+    uint256 grossDonatedAmount;
 }
 ```
 
-### Donatur
-Donatur Struct to record donatur data
+### CreatorsRecord
+Creators Record Struct to Creator data
 
 
 ```solidity
-struct Donatur {
-    address donatur;
-    uint256 amount;
-    address token;
+struct CreatorsRecord {
+    uint256 totalDonation;
+    uint256 claimableShares;
 }
 ```
 

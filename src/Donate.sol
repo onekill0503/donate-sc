@@ -2,6 +2,8 @@
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ISUSDE.sol";
 
 /**
@@ -10,27 +12,22 @@ import "./interfaces/ISUSDE.sol";
  * @notice This Contract is used for donation and store the donation data
  * @custom:experimental This is an experimental contract
  */
-contract Donate {
+contract Donate is Ownable {
     /**
      * @notice Gifters Record Struct to Gifter data
      */
     struct GiftersRecord {
         uint256 donatedAmount; // donation amount deducted by platform fees
         uint256 totalShares; // total shares of donation
-        uint256 inactiveYield; // Yield amount from withraw donation
         uint256 grossDonatedAmount; // gross amount of donation
     }
+    /**
+     * @notice Creators Record Struct to Creator data
+     */
 
     struct CreatorsRecord {
         uint256 totalDonation; // total donation amount
         uint256 claimableShares; // claimable donation amount
-    }
-
-    struct LockedBalances {
-        address creatorAddress;
-        uint256 shares;
-        uint256 lockUntil;
-        bool unlocked;
     }
 
     /**
@@ -41,10 +38,6 @@ contract Donate {
      * @notice Variables to store total withdraw
      */
     uint256 public totalWithdraw;
-    /**
-     * @notice Variables to store owner address
-     */
-    address public owner;
     /**
      * @notice Variables to store platform address
      */
@@ -61,9 +54,23 @@ contract Donate {
      * @notice yield Percentage (fixed to 70%), this is donatur yield percentage for cashback
      */
     uint256 public gifterPercentage = 70;
+    /**
+     * @notice batchWithdrawAmount to store total amount to batch withdraw
+     */
+    uint256 public batchWithdrawAmount = 0;
+    /**
+     * @notice batchWithdrawMin to store minimum amount to batch withdraw
+     */
+    uint256 public batchWithdrawMin = 500e18;
+    /**
+     * @notice Merkle Root Hash to store merkle root hash
+     */
+    bytes32 public merkleRoot;
 
-    event Donation(address indexed donor, uint256 amount);
-    event WithdrawDonation(address indexed donor, uint256 amount);
+    event NewDonation(
+        address indexed gifter, uint256 grossAmount, uint256 netAmount, address indexed creator, uint256 gifterShares
+    );
+    event InitiateWithdraw(address indexed creator, uint256 shares);
     event addAllowedDonationTokenEvent(address indexed token);
     event removeAllowedDonationTokenEvent(address indexed token);
 
@@ -71,6 +78,8 @@ contract Donate {
     error DONATE__AMOUNT_ZERO();
     error DONATE__INSUFFICIENT_BALANCE(address wallet);
     error DONATE__WALLET_NOT_ALLOWED(address wallet);
+    error DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED(uint256 batchWithdrawAmount);
+    error DONATE__INVALID_MERKLE_PROOF();
 
     /**
      * @notice Donation Mapping to store donation data
@@ -85,17 +94,30 @@ contract Donate {
      * @notice Allowed Donation Token Array to store allowed donation token
      */
     address[] public allowedDonationTokens;
-
+    /**
+     * @notice sUSDe token address with ISUSDE interface
+     */
     ISUSDE public sUSDeToken;
+    /**
+     * @notice USDe token address with IERC20 interface
+     */
+    IERC20 public uSDeToken;
 
     /**
      * @notice Constructor to initialize owner and platform address
      * @param _platformAddress platform wallet address to receive platform fees
      */
-    constructor(address _platformAddress, address _sUSDeToken) {
-        owner = msg.sender;
+    constructor(address _platformAddress, address _sUSDeToken) Ownable(msg.sender) {
         platformAddress = _platformAddress;
         sUSDeToken = ISUSDE(_sUSDeToken);
+    }
+
+    /**
+     * @notice Function to set merkle root hash (only owner can set)
+     * @param _merkleRoot merkle root hash
+     */
+    function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+        merkleRoot = _merkleRoot;
     }
 
     /**
@@ -117,10 +139,9 @@ contract Donate {
         uint256 _netShares = sUSDeToken.convertToShares(_netAmount);
         uint256 _gifterShares = sUSDeToken.convertToShares(_gifterAmount);
 
-        gifters[msg.sender].donatedAmount += _gifterAmount;
+        gifters[msg.sender].donatedAmount += _netAmount;
         gifters[msg.sender].totalShares += _gifterShares;
         gifters[msg.sender].grossDonatedAmount += _amount;
-        gifters[msg.sender].inactiveYield += 0;
 
         creators[_to].totalDonation += _netAmount;
         creators[_to].claimableShares += _netShares;
@@ -128,30 +149,46 @@ contract Donate {
         donationToken.transferFrom(msg.sender, platformAddress, _platformFees);
         sUSDeToken.deposit(sUSDeToken.convertToShares(_netAmount), address(this));
 
-        emit Donation(msg.sender, _amount);
+        emit NewDonation(msg.sender, _amount, _netAmount, _to, _gifterShares);
     }
 
     /**
      * @notice Withdraw function to withdraw donation from creator
      * @param _shares Amount of token to withdraw
      */
-    function creatorWithdraw(uint256 _shares) external {
+    function initiateWithdraw(uint256 _shares) external {
         if (_shares == 0) revert DONATE__AMOUNT_ZERO();
         if (creators[msg.sender].claimableShares < _shares) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
 
-        uint256 _assets = sUSDeToken.convertToAssets(_shares);
-        uint256 _gifterShares = _shares * gifterPercentage / 100;
+        batchWithdrawAmount += _shares;
 
-        sUSDeToken.cooldownShares(_shares);
-        emit WithdrawDonation(msg.sender, _shares);
+        emit InitiateWithdraw(msg.sender, _shares);
+    }
+
+    /**
+     * @notice Function to batch withdraw all donation token from contract
+     */
+    function batchWithdraw() external onlyOwner {
+        if (batchWithdrawAmount < batchWithdrawMin) {
+            revert DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED(batchWithdrawAmount);
+        }
+
+        sUSDeToken.approve(address(sUSDeToken), batchWithdrawAmount);
+        sUSDeToken.cooldownShares(batchWithdrawAmount);
+    }
+
+    /**
+     * @notice Function to unstake and withdraw all donation token from contract
+     */
+    function unstakeBatchWithdraw() external onlyOwner {
+        sUSDeToken.unstake(address(this));
     }
 
     /**
      * @notice Function to add allowed donation token
      * @param _token token contract address
      */
-    function addAllowedDonationToken(address _token) external {
-        if (msg.sender != owner) revert DONATE__WALLET_NOT_ALLOWED(msg.sender);
+    function addAllowedDonationToken(address _token) external onlyOwner {
         allowedDonationToken[_token] = true;
         allowedDonationTokens.push(_token);
 
@@ -162,17 +199,15 @@ contract Donate {
      * @notice Function to change owner of the contract
      * @param _newOwner new owner address
      */
-    function changeOwner(address _newOwner) external {
-        if (msg.sender != owner) revert DONATE__WALLET_NOT_ALLOWED(msg.sender);
-        owner = _newOwner;
+    function changeOwner(address _newOwner) external onlyOwner {
+        Ownable.transferOwnership(_newOwner);
     }
 
     /**
      * @notice Function to remove allowed donation token
      * @param _token token contract address
      */
-    function removeAllowedDonationToken(address _token) external {
-        if (msg.sender != owner) revert DONATE__WALLET_NOT_ALLOWED(msg.sender);
+    function removeAllowedDonationToken(address _token) external onlyOwner {
         allowedDonationToken[_token] = false;
 
         uint256 _removedIndex = allowedDonationTokens.length;
@@ -210,12 +245,27 @@ contract Donate {
      */
     function getYield(address _user) external view returns (uint256) {
         uint256 _totalUSDE = sUSDeToken.previewRedeem(gifters[_user].totalShares);
-        uint256 _yield = gifters[_user].inactiveYield + (_totalUSDE - gifters[_user].donatedAmount);
+        uint256 _yield = (_totalUSDE - gifters[_user].donatedAmount);
         return _yield;
     }
 
-    function updateSUSDeToken(address _sUSDeToken) external {
-        if (msg.sender != owner) revert DONATE__WALLET_NOT_ALLOWED(msg.sender);
+    /**
+     * @notice function to update SUSDE token address
+     * @param _sUSDeToken sUSDe token address
+     */
+    function updateToken(address _sUSDeToken, address _USDeToken) external onlyOwner {
         sUSDeToken = ISUSDE(_sUSDeToken);
+        uSDeToken = IERC20(_USDeToken);
+    }
+
+    /**
+     * @notice function to claim token
+     * @param _amount amount to claim
+     * @param _proof merkle proof
+     */
+    function claim(uint256 _amount, bytes32[] calldata _proof) external {
+        bool isValidProof = MerkleProof.verify(_proof, merkleRoot, keccak256(abi.encodePacked(msg.sender, _amount)));
+        if (!isValidProof) revert DONATE__INVALID_MERKLE_PROOF();
+        uSDeToken.transfer(msg.sender, _amount);
     }
 }

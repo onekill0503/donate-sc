@@ -1,5 +1,5 @@
 # IDonate
-[Git Source](https://github.com/onekill0503/donate-sc/blob/a078220bd4d81597f10b7d396efe342f73180a17/src\interfaces\IDonate.sol)
+[Git Source](https://github.com/onekill0503/donate-sc/blob/c651947d75ba95d6ea162a0584ab79c01ebd96d1/src\interfaces\IDonate.sol)
 
 
 ## Functions
