@@ -65,6 +65,10 @@ contract Donate is Ownable {
      */
     uint256 public batchWithdrawMin = 500e18;
     /**
+     * @notice lastBatchWithdraw to store last batch withdraw timestamp
+     */
+    uint256 public lastBatchWithdraw;
+    /**
      * @notice Merkle Root Hash to store merkle root hash
      */
     bytes32 public merkleRoot;
@@ -183,6 +187,7 @@ contract Donate is Ownable {
 
         sUSDeToken.approve(address(sUSDeToken), batchWithdrawAmount);
         sUSDeToken.cooldownShares(batchWithdrawAmount);
+        lastBatchWithdraw = block.timestamp;
     }
 
     /**
