@@ -122,9 +122,10 @@ contract Donate is Ownable {
      * @notice Constructor to initialize owner and platform address
      * @param _platformAddress platform wallet address to receive platform fees
      */
-    constructor(address _platformAddress, address _sUSDeToken) Ownable(msg.sender) {
+    constructor(address _platformAddress, address _sUSDeToken, address _uSDEeToken) Ownable(msg.sender) {
         platformAddress = _platformAddress;
         sUSDeToken = ISUSDE(_sUSDeToken);
+        uSDeToken = IERC20(_uSDEeToken);
     }
 
     /**

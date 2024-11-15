@@ -6,11 +6,11 @@ schema:
 dataSources:
   - kind: ethereum
     name: Donate
-    network: inktest
+    network: mainnet
     source:
       address: "0xc535711468ED0c21e4B6E0033C4852a1A0cd5848"
       abi: Donate
-      startBlock: 2571410
+      startBlock: 21193487
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
