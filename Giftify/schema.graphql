@@ -1,0 +1,59 @@
+type ClaimReward @entity(immutable: true) {
+  id: Bytes!
+  user: Bytes! # address
+  amount: BigInt! # uint256
+  timestamp: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type InitiateWithdraw @entity(immutable: true) {
+  id: Bytes!
+  creator: Bytes! # address
+  shares: BigInt! # uint256
+  timestamp: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type NewDonation @entity(immutable: true) {
+  id: Bytes!
+  gifter: Bytes! # address
+  grossAmount: BigInt! # uint256
+  netAmount: BigInt! # uint256
+  creator: Bytes! # address
+  gifterShares: BigInt! # uint256
+  timestamp: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type OwnershipTransferred @entity(immutable: true) {
+  id: Bytes!
+  previousOwner: Bytes! # address
+  newOwner: Bytes! # address
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type addAllowedDonationTokenEvent @entity(immutable: true) {
+  id: Bytes!
+  token: Bytes! # address
+  timestamp: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type removeAllowedDonationTokenEvent @entity(immutable: true) {
+  id: Bytes!
+  token: Bytes! # address
+  timestamp: BigInt! # uint256
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
