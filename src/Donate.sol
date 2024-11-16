@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ISUSDE.sol";
+import {console} from "forge-std/console.sol";
 
 /**
  * @title Donate
@@ -162,9 +163,9 @@ contract Donate is Ownable {
         creators[_to].claimableShares += _netShares;
 
         donationToken.transferFrom(msg.sender, platformAddress, _platformFees);
-        donationToken.transferFrom(msg.sender, address(this), _amount);
-        sUSDeToken.approve(address(sUSDeToken), _netShares);
-        sUSDeToken.deposit(sUSDeToken.convertToShares(_netAmount), address(this));
+        donationToken.transferFrom(msg.sender, address(this), _netAmount);
+        donationToken.approve(address(sUSDeToken), _netAmount);
+        sUSDeToken.deposit(_netAmount, address(this));
 
         emit NewDonation(msg.sender, _amount, _netAmount, _to, _gifterShares, block.timestamp);
     }
