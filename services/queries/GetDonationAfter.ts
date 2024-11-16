@@ -2,7 +2,7 @@ import { gql } from 'graphql-request'
 
 const GET_DONATION_AFTER = gql`
   query GetDonationsAfter($timestamp: BigInt!) {
-    donations(where: { timestamp__gt: $timestamp }) {
+    donations(where: { timestamp_gt: $timestamp }) {
       id
       block_number
       timestamp_

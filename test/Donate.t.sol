@@ -25,7 +25,7 @@ contract DonateTest is Test {
         usde = ERC20(usdeAddress);
         susde = ERC4626(susdeAddress);
 
-        donate = new Donate(platform, susdeAddress);
+        donate = new Donate(platform, susdeAddress, usdeAddress);
         donate.addAllowedDonationToken(usdeAddress);
     }
 
