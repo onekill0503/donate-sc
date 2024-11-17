@@ -70,6 +70,10 @@ contract Donate is Ownable {
      */
     uint256 public lastBatchWithdraw;
     /**
+     * @notice status of withdraw is in active state or not. if true owner can't execut batch withdraw
+     */
+    bool public withdrawStatus = false;
+    /**
      * @notice Merkle Root Hash to store merkle root hash
      */
     bytes32 public merkleRoot;
@@ -166,8 +170,8 @@ contract Donate is Ownable {
         donationToken.transferFrom(msg.sender, platformAddress, _platformFees);
         donationToken.transferFrom(msg.sender, address(this), _netAmount);
         donationToken.approve(address(sUSDeToken), _netAmount);
-        sUSDeToken.deposit(_netAmount, address(this));
-
+        uint256 shares = sUSDeToken.deposit(_netAmount, address(this));
+        console.log("Shares: ", shares);
         emit NewDonation(msg.sender, _amount, _netAmount, _to, _gifterShares, block.timestamp);
     }
 
@@ -195,6 +199,7 @@ contract Donate is Ownable {
         sUSDeToken.approve(address(sUSDeToken), batchWithdrawAmount);
         sUSDeToken.cooldownShares(batchWithdrawAmount);
         lastBatchWithdraw = block.timestamp;
+        withdrawStatus = true;
     }
 
     /**
@@ -202,6 +207,7 @@ contract Donate is Ownable {
      */
     function unstakeBatchWithdraw() external onlyOwner {
         sUSDeToken.unstake(address(this));
+        withdrawStatus = false;
     }
 
     /**

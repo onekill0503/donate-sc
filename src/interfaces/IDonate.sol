@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 interface IDonate {
-
     function donate(uint256 _amount, address _to, address _token) external;
     function setMerkleRoot(bytes32 _merkleRoot) external;
     function initiateWithdraw(address _shares) external;
@@ -22,5 +21,4 @@ interface IDonate {
      * @return status token status
      */
     function isTokenAllowed(address _token) external view returns (bool);
-
 }
