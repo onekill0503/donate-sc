@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/ISUSDE.sol";
-import {console} from "forge-std/console.sol";
 
 /**
  * @title Donate
@@ -88,13 +87,9 @@ contract Donate is Ownable {
     );
     event InitiateWithdraw(address indexed creator, uint256 shares, uint256 timestamp);
     event ClaimReward(address indexed user, uint256 amount, uint256 timestamp);
-    event addAllowedDonationTokenEvent(address indexed token, uint256 timestamp);
-    event removeAllowedDonationTokenEvent(address indexed token, uint256 timestamp);
 
-    error DONATE__NOT_ALLOWED_TOKEN(address token);
     error DONATE__AMOUNT_ZERO();
     error DONATE__INSUFFICIENT_BALANCE(address wallet);
-    error DONATE__WALLET_NOT_ALLOWED(address wallet);
     error DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED(uint256 batchWithdrawAmount);
     error DONATE__INVALID_MERKLE_PROOF();
 
@@ -145,14 +140,10 @@ contract Donate is Ownable {
      * @notice Donate function to donate token to creator
      * @param _amount Donation amount for creator
      * @param _to Creator wallet address
-     * @param _token donation token address (ex: USDe)
      */
-    function donate(uint256 _amount, address _to, address _token) external {
+    function donate(uint256 _amount, address _to) external {
         if (_amount == 0) revert DONATE__AMOUNT_ZERO();
-        if (!allowedDonationToken[_token]) revert DONATE__NOT_ALLOWED_TOKEN(_token);
-
-        IERC20 donationToken = IERC20(_token);
-        if (donationToken.balanceOf(msg.sender) < _amount) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
+        if (uSDeToken.balanceOf(msg.sender) < _amount) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
 
         uint256 _platformFees = (_amount * platformFees) / 100;
         uint256 _netAmount = _amount - _platformFees;
@@ -167,11 +158,11 @@ contract Donate is Ownable {
         creators[_to].totalDonation += _netAmount;
         creators[_to].claimableShares += _netShares;
 
-        donationToken.transferFrom(msg.sender, platformAddress, _platformFees);
-        donationToken.transferFrom(msg.sender, address(this), _netAmount);
-        donationToken.approve(address(sUSDeToken), _netAmount);
-        uint256 shares = sUSDeToken.deposit(_netAmount, address(this));
-        console.log("Shares: ", shares);
+        uSDeToken.transferFrom(msg.sender, platformAddress, _platformFees);
+        uSDeToken.transferFrom(msg.sender, address(this), _netAmount);
+        uSDeToken.approve(address(sUSDeToken), _netAmount);
+        sUSDeToken.deposit(_netAmount, address(this));
+
         emit NewDonation(msg.sender, _amount, _netAmount, _to, _gifterShares, block.timestamp);
     }
 
@@ -184,7 +175,9 @@ contract Donate is Ownable {
         if (creators[msg.sender].claimableShares < _shares) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
 
         batchWithdrawAmount += _shares;
-
+        if (lastBatchWithdraw == 0) {
+            lastBatchWithdraw = block.timestamp;
+        }
         emit InitiateWithdraw(msg.sender, _shares, block.timestamp);
     }
 
@@ -198,7 +191,6 @@ contract Donate is Ownable {
 
         sUSDeToken.approve(address(sUSDeToken), batchWithdrawAmount);
         sUSDeToken.cooldownShares(batchWithdrawAmount);
-        lastBatchWithdraw = block.timestamp;
         withdrawStatus = true;
     }
 
@@ -208,17 +200,7 @@ contract Donate is Ownable {
     function unstakeBatchWithdraw() external onlyOwner {
         sUSDeToken.unstake(address(this));
         withdrawStatus = false;
-    }
-
-    /**
-     * @notice Function to add allowed donation token
-     * @param _token token contract address
-     */
-    function addAllowedDonationToken(address _token) external onlyOwner {
-        allowedDonationToken[_token] = true;
-        allowedDonationTokens.push(_token);
-
-        emit addAllowedDonationTokenEvent(_token, block.timestamp);
+        lastBatchWithdraw = 0;
     }
 
     /**
@@ -227,41 +209,6 @@ contract Donate is Ownable {
      */
     function changeOwner(address _newOwner) external onlyOwner {
         Ownable.transferOwnership(_newOwner);
-    }
-
-    /**
-     * @notice Function to remove allowed donation token
-     * @param _token token contract address
-     */
-    function removeAllowedDonationToken(address _token) external onlyOwner {
-        allowedDonationToken[_token] = false;
-
-        uint256 _removedIndex = allowedDonationTokens.length;
-        for (uint256 i = 0; i < allowedDonationTokens.length; i++) {
-            if (allowedDonationTokens[i] == _token) {
-                _removedIndex = i;
-                break;
-            }
-        }
-
-        if (_removedIndex == allowedDonationTokens.length) revert DONATE__NOT_ALLOWED_TOKEN(_token);
-
-        for (uint256 i = _removedIndex; i < allowedDonationTokens.length - 1; i++) {
-            allowedDonationTokens[i] = allowedDonationTokens[i + 1];
-        }
-
-        allowedDonationTokens.pop();
-
-        emit removeAllowedDonationTokenEvent(_token, block.timestamp);
-    }
-
-    /**
-     * @notice function to check is token allowed for donation or not
-     * @param _token token contract address
-     * @return status status of token is allowed or not
-     */
-    function isTokenAllowed(address _token) external view returns (bool) {
-        return allowedDonationToken[_token];
     }
 
     /**
@@ -294,5 +241,21 @@ contract Donate is Ownable {
         if (!isValidProof) revert DONATE__INVALID_MERKLE_PROOF();
         uSDeToken.transfer(msg.sender, _amount);
         emit ClaimReward(msg.sender, _amount, block.timestamp);
+    }
+    /**
+     * @notice function to get creator details
+     * @param _creator creator wallet address
+     */
+
+    function getCreator(address _creator) external view returns (CreatorsRecord memory) {
+        return creators[_creator];
+    }
+    /**
+     * @notice function to get gifter details
+     * @param _gifter gifter wallet address
+     */
+
+    function getGifter(address _gifter) external view returns (GiftersRecord memory) {
+        return gifters[_gifter];
     }
 }

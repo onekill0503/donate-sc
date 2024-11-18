@@ -11,21 +11,13 @@
         "name": "_sUSDeToken",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "addAllowedDonationToken",
-    "inputs": [
+      },
       {
-        "name": "_token",
+        "name": "_uSDEeToken",
         "type": "address",
         "internalType": "address"
       }
     ],
-    "outputs": [],
     "stateMutability": "nonpayable"
   },
   {
@@ -185,15 +177,87 @@
         "name": "_to",
         "type": "address",
         "internalType": "address"
-      },
-      {
-        "name": "_token",
-        "type": "address",
-        "internalType": "address"
       }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getCreator",
+    "inputs": [
+      {
+        "name": "_creator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct Donate.CreatorsRecord",
+        "components": [
+          {
+            "name": "totalDonation",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "claimableShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "lastClaimed",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getGifter",
+    "inputs": [
+      {
+        "name": "_gifter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct Donate.GiftersRecord",
+        "components": [
+          {
+            "name": "donatedAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "grossDonatedAmount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "lastClaimed",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -276,25 +340,6 @@
   },
   {
     "type": "function",
-    "name": "isTokenAllowed",
-    "inputs": [
-      {
-        "name": "_token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bool",
-        "internalType": "bool"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "lastBatchWithdraw",
     "inputs": [],
     "outputs": [
@@ -357,19 +402,6 @@
       }
     ],
     "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "removeAllowedDonationToken",
-    "inputs": [
-      {
-        "name": "_token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -480,6 +512,19 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawStatus",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "event",
@@ -594,44 +639,6 @@
     "anonymous": false
   },
   {
-    "type": "event",
-    "name": "addAllowedDonationTokenEvent",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "removeAllowedDonationTokenEvent",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "timestamp",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      }
-    ],
-    "anonymous": false
-  },
-  {
     "type": "error",
     "name": "DONATE__AMOUNT_ZERO",
     "inputs": []
@@ -662,28 +669,6 @@
     "type": "error",
     "name": "DONATE__INVALID_MERKLE_PROOF",
     "inputs": []
-  },
-  {
-    "type": "error",
-    "name": "DONATE__NOT_ALLOWED_TOKEN",
-    "inputs": [
-      {
-        "name": "token",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "DONATE__WALLET_NOT_ALLOWED",
-    "inputs": [
-      {
-        "name": "wallet",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
   },
   {
     "type": "error",

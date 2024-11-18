@@ -30,7 +30,6 @@ contract DonateTest is Test {
         // donate = new Donate(platform, susdeAddress, usdeAddress);
         donate = IDonate(0xb60971942E4528A811D24826768Bc91ad1383D21);
 
-        donate.addAllowedDonationToken(usdeAddress);
         vm.stopPrank();
     }
 
@@ -46,7 +45,7 @@ contract DonateTest is Test {
         uint256 allowance = usde.allowance(userX, address(donate));
         assertEq(allowance, 50 ether, "Allowance not set correctly");
 
-        donate.donate(50 ether, creator, usdeAddress);
+        donate.donate(50 ether, creator);
 
         uint256 usdeBalanceXAfter = usde.balanceOf(userX);
         assertEq(usdeBalanceXAfter, usdeBalanceX - 50 ether, "Balance not deducted correctly");

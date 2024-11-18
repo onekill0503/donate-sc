@@ -23,13 +23,10 @@ contract DonateTest is Test {
     address public userY = 0x1c00881a4b935D58E769e7c85F5924B8175D1526;
 
     function setUp() public {
-        // vm.createSelectFork("https://eth-mainnet.g.alchemy.com/v2/psMgMPfXjYv8RHvhTKDDcAOv6HV0pdIA", 21178781);
         vm.startBroadcast();
         usde = USDE(0x6712008CCD96751d586FdBa0DEf5495E0E22D904);
         susde = SUSDE(0x53DaB165b879542E9aDFC41c6474A9d797B9b042);
         donate = Donate(0x03F7F064E6ceD8e154e3FdAAF92DcCC4e818E97B);
-
-        donate.addAllowedDonationToken(address(usde));
         vm.stopBroadcast();
     }
 
