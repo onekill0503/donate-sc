@@ -71,7 +71,7 @@ contract Donate is Ownable {
     /**
      * @notice status of withdraw is in active state or not. if true owner can't execut batch withdraw
      */
-    bool public withdrawStatus = false;
+    bool public withdrawStatus;
     /**
      * @notice Merkle Root Hash to store merkle root hash
      */
@@ -126,6 +126,7 @@ contract Donate is Ownable {
         platformAddress = _platformAddress;
         sUSDeToken = ISUSDE(_sUSDeToken);
         uSDeToken = IERC20(_uSDEeToken);
+        withdrawStatus = false;
     }
 
     /**
@@ -192,6 +193,7 @@ contract Donate is Ownable {
         sUSDeToken.approve(address(sUSDeToken), batchWithdrawAmount);
         sUSDeToken.cooldownShares(batchWithdrawAmount);
         withdrawStatus = true;
+        batchWithdrawAmount = 0;
     }
 
     /**
@@ -241,21 +243,5 @@ contract Donate is Ownable {
         if (!isValidProof) revert DONATE__INVALID_MERKLE_PROOF();
         uSDeToken.transfer(msg.sender, _amount);
         emit ClaimReward(msg.sender, _amount, block.timestamp);
-    }
-    /**
-     * @notice function to get creator details
-     * @param _creator creator wallet address
-     */
-
-    function getCreator(address _creator) external view returns (CreatorsRecord memory) {
-        return creators[_creator];
-    }
-    /**
-     * @notice function to get gifter details
-     * @param _gifter gifter wallet address
-     */
-
-    function getGifter(address _gifter) external view returns (GiftersRecord memory) {
-        return gifters[_gifter];
     }
 }
