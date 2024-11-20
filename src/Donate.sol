@@ -70,10 +70,6 @@ contract Donate is Ownable {
      */
     uint256 public batchWithdrawMin = 500e18;
     /**
-     * @notice status of withdraw is in active state or not. if true owner can't execut batch withdraw
-     */
-    bool public withdrawStatus;
-    /**
      * @notice Merkle Root Hash to store merkle root hash
      */
     bytes32 public merkleRoot;
@@ -128,7 +124,6 @@ contract Donate is Ownable {
         platformAddress = _platformAddress;
         sUSDeToken = ISUSDE(_sUSDeToken);
         uSDeToken = IERC20(_uSDEeToken);
-        withdrawStatus = false;
     }
 
     /**
