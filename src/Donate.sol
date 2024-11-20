@@ -22,6 +22,11 @@ contract Donate is Ownable {
         uint256 grossDonatedAmount; // gross amount of donation
         uint256 lastClaimed; // last claimed timestamp
     }
+    struct WithdrawBatch {
+        uint256 batchAmount;
+        uint256 lastBatchWithdraw;
+        bool onGoing;
+    }
     /**
      * @notice Creators Record Struct to Creator data
      */
@@ -59,15 +64,11 @@ contract Donate is Ownable {
     /**
      * @notice batchWithdrawAmount to store total amount to batch withdraw
      */
-    uint256 public batchWithdrawAmount = 0;
+    uint256 public currentBatch;
     /**
      * @notice batchWithdrawMin to store minimum amount to batch withdraw
      */
     uint256 public batchWithdrawMin = 500e18;
-    /**
-     * @notice lastBatchWithdraw to store last batch withdraw timestamp
-     */
-    uint256 public lastBatchWithdraw;
     /**
      * @notice status of withdraw is in active state or not. if true owner can't execut batch withdraw
      */
@@ -105,6 +106,7 @@ contract Donate is Ownable {
      * @notice Allowed Donation Token Mapping to store allowed donation token
      */
     mapping(address => bool) public allowedDonationToken;
+    mapping(uint256 => WithdrawBatch) public batchWithdrawAmounts;
     /**
      * @notice Allowed Donation Token Array to store allowed donation token
      */
@@ -175,9 +177,14 @@ contract Donate is Ownable {
         if (_shares == 0) revert DONATE__AMOUNT_ZERO();
         if (creators[msg.sender].claimableShares < _shares) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
 
-        batchWithdrawAmount += _shares;
-        if (lastBatchWithdraw == 0) {
-            lastBatchWithdraw = block.timestamp;
+        if(batchWithdrawAmounts[currentBatch].onGoing) {
+            batchWithdrawAmounts[currentBatch + 1].batchAmount += _shares;
+        }else{
+            batchWithdrawAmounts[currentBatch].batchAmount += _shares;
+        }
+
+        if (batchWithdrawAmounts[currentBatch].lastBatchWithdraw == 0) {
+            batchWithdrawAmounts[currentBatch].lastBatchWithdraw = block.timestamp;
         }
         emit InitiateWithdraw(msg.sender, _shares, block.timestamp);
     }
@@ -186,14 +193,14 @@ contract Donate is Ownable {
      * @notice Function to batch withdraw all donation token from contract
      */
     function batchWithdraw() external onlyOwner {
-        if (batchWithdrawAmount < batchWithdrawMin) {
-            revert DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED(batchWithdrawAmount);
+        if (batchWithdrawAmounts[currentBatch].batchAmount < batchWithdrawMin) {
+            revert DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED(batchWithdrawAmounts[currentBatch].batchAmount);
         }
 
-        sUSDeToken.approve(address(sUSDeToken), batchWithdrawAmount);
-        sUSDeToken.cooldownShares(batchWithdrawAmount);
-        withdrawStatus = true;
-        batchWithdrawAmount = 0;
+        sUSDeToken.approve(address(sUSDeToken), batchWithdrawAmounts[currentBatch].batchAmount);
+        sUSDeToken.cooldownShares(batchWithdrawAmounts[currentBatch].batchAmount);
+
+        batchWithdrawAmounts[currentBatch].onGoing = true;
     }
 
     /**
@@ -201,8 +208,7 @@ contract Donate is Ownable {
      */
     function unstakeBatchWithdraw() external onlyOwner {
         sUSDeToken.unstake(address(this));
-        withdrawStatus = false;
-        lastBatchWithdraw = 0;
+        currentBatch += 1;
     }
 
     /**
@@ -243,5 +249,13 @@ contract Donate is Ownable {
         if (!isValidProof) revert DONATE__INVALID_MERKLE_PROOF();
         uSDeToken.transfer(msg.sender, _amount);
         emit ClaimReward(msg.sender, _amount, block.timestamp);
+    }
+
+    function getBatchWithdrawAmount() external view returns (uint256) {
+        return batchWithdrawAmounts[currentBatch].batchAmount;
+    }
+    
+    function getLastBatchWithdraw() external view returns (uint256) {
+        return batchWithdrawAmounts[currentBatch].lastBatchWithdraw;
     }
 }
