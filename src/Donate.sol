@@ -17,15 +17,23 @@ contract Donate is Ownable {
      * @notice Gifters Record Struct to Gifter data
      */
     struct GiftersRecord {
+        uint256 totalDonations; // total donation amount
         uint256 donatedAmount; // donation amount deducted by platform fees
         uint256 totalShares; // total shares of donation
         uint256 grossDonatedAmount; // gross amount of donation
         uint256 lastClaimed; // last claimed timestamp
     }
+
     struct WithdrawBatch {
         uint256 batchAmount;
         uint256 lastBatchWithdraw;
         bool onGoing;
+    }
+
+    struct UserShares {
+        uint256 totalShares;
+        uint256 claimedAmount;
+        uint256 usdeAmount;
     }
     /**
      * @notice Creators Record Struct to Creator data
@@ -105,6 +113,7 @@ contract Donate is Ownable {
     mapping(address => bool) public allowedDonationToken;
     mapping(uint256 => WithdrawBatch) public batchWithdrawAmounts;
     mapping(uint256 => mapping(address => bool)) public claimed;
+    mapping(uint256 => mapping(address => UserShares)) public userShares;
     /**
      * @notice Allowed Donation Token Array to store allowed donation token
      */
@@ -154,9 +163,17 @@ contract Donate is Ownable {
         gifters[msg.sender].donatedAmount += _netAmount;
         gifters[msg.sender].totalShares += _gifterShares;
         gifters[msg.sender].grossDonatedAmount += _amount;
+        gifters[msg.sender].totalDonations += _amount;
 
         creators[_to].totalDonation += _netAmount;
         creators[_to].claimableShares += _netShares;
+
+        // 70% of donation will be record to calculate yield earned by gifter
+        userShares[currentBatch][msg.sender].totalShares += _gifterShares;
+        userShares[currentBatch][msg.sender].usdeAmount += _gifterAmount;
+        // 30% of donation will be record to calculate yield earned by creator
+        userShares[currentBatch][_to].totalShares += _netShares - _gifterShares;
+        userShares[currentBatch][_to].usdeAmount += _netAmount - _gifterAmount;
 
         uSDeToken.transferFrom(msg.sender, platformAddress, _platformFees);
         uSDeToken.transferFrom(msg.sender, address(this), _netAmount);
@@ -174,9 +191,9 @@ contract Donate is Ownable {
         if (_shares == 0) revert DONATE__AMOUNT_ZERO();
         if (creators[msg.sender].claimableShares < _shares) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
 
-        if(batchWithdrawAmounts[currentBatch].onGoing) {
+        if (batchWithdrawAmounts[currentBatch].onGoing) {
             batchWithdrawAmounts[currentBatch + 1].batchAmount += _shares;
-        }else{
+        } else {
             batchWithdrawAmounts[currentBatch].batchAmount += _shares;
         }
 
@@ -222,8 +239,10 @@ contract Donate is Ownable {
      * @return _yield yield amount deducted by yeild percentage
      */
     function getYield(address _user) external view returns (uint256) {
-        uint256 _totalUSDE = sUSDeToken.previewRedeem(gifters[_user].totalShares);
-        uint256 _yield = (_totalUSDE - gifters[_user].donatedAmount);
+        uint256 _totalUSDE = userShares[currentBatch][_user].claimedAmount > 0
+            ? userShares[currentBatch][_user].claimedAmount
+            : sUSDeToken.previewRedeem(userShares[currentBatch][_user].totalShares);
+        uint256 _yield = (_totalUSDE - userShares[currentBatch][_user].usdeAmount);
         return _yield;
     }
 
@@ -242,18 +261,27 @@ contract Donate is Ownable {
      * @param _proof merkle proof
      */
     function claim(uint256 _amount, bytes32[] calldata _proof) external {
-        if(claimed[currentBatch][msg.sender]) revert DONATE__ALREADY_CLAIMED(msg.sender);
+        if (claimed[currentBatch][msg.sender]) revert DONATE__ALREADY_CLAIMED(msg.sender);
         bool isValidProof = MerkleProof.verify(_proof, merkleRoot, keccak256(abi.encodePacked(msg.sender, _amount)));
+
         if (!isValidProof) revert DONATE__INVALID_MERKLE_PROOF();
         uSDeToken.transfer(msg.sender, _amount);
-        emit ClaimReward(msg.sender, _amount, block.timestamp);
+
         claimed[currentBatch][msg.sender] = true;
+        userShares[currentBatch][msg.sender].claimedAmount += _amount;
+
+        // if sender has donated before, update last claimed timestamp
+        if (gifters[msg.sender].donatedAmount > 0) {
+            gifters[msg.sender].lastClaimed = block.timestamp;
+        }
+
+        emit ClaimReward(msg.sender, _amount, block.timestamp);
     }
 
     function getBatchWithdrawAmount() external view returns (uint256) {
         return batchWithdrawAmounts[currentBatch].batchAmount;
     }
-    
+
     function getLastBatchWithdraw() external view returns (uint256) {
         return batchWithdrawAmounts[currentBatch].lastBatchWithdraw;
     }
