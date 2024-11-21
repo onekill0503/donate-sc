@@ -93,6 +93,7 @@ contract Donate is Ownable {
     error DONATE__INSUFFICIENT_BALANCE(address wallet);
     error DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED(uint256 batchWithdrawAmount);
     error DONATE__INVALID_MERKLE_PROOF();
+    error DONATE__ALREADY_CLAIMED(address wallet);
 
     /**
      * @notice Donation Mapping to store donation data
@@ -107,6 +108,7 @@ contract Donate is Ownable {
      */
     mapping(address => bool) public allowedDonationToken;
     mapping(uint256 => WithdrawBatch) public batchWithdrawAmounts;
+    mapping(uint256 => mapping(address => bool)) public claimed;
     /**
      * @notice Allowed Donation Token Array to store allowed donation token
      */
@@ -245,10 +247,12 @@ contract Donate is Ownable {
      * @param _proof merkle proof
      */
     function claim(uint256 _amount, bytes32[] calldata _proof) external {
+        if(claimed[currentBatch][msg.sender]) revert DONATE__ALREADY_CLAIMED(msg.sender);
         bool isValidProof = MerkleProof.verify(_proof, merkleRoot, keccak256(abi.encodePacked(msg.sender, _amount)));
         if (!isValidProof) revert DONATE__INVALID_MERKLE_PROOF();
         uSDeToken.transfer(msg.sender, _amount);
         emit ClaimReward(msg.sender, _amount, block.timestamp);
+        claimed[currentBatch][msg.sender] = true;
     }
 
     function getBatchWithdrawAmount() external view returns (uint256) {
