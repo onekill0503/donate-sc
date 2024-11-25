@@ -22,12 +22,10 @@ contract DonateTest is Test {
     address public userY = 0x1c00881a4b935D58E769e7c85F5924B8175D1526;
 
     function setUp() public {
-        // vm.createSelectFork("https://eth-mainnet.g.alchemy.com/v2/psMgMPfXjYv8RHvhTKDDcAOv6HV0pdIA", 21178781);
         vm.startPrank(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+
         usde = ERC20(usdeAddress);
         susde = ERC4626(susdeAddress);
-
-        // donate = new Donate(platform, susdeAddress, usdeAddress);
         donate = IDonate(0xb60971942E4528A811D24826768Bc91ad1383D21);
 
         vm.stopPrank();
@@ -50,9 +48,5 @@ contract DonateTest is Test {
         uint256 usdeBalanceXAfter = usde.balanceOf(userX);
         assertEq(usdeBalanceXAfter, usdeBalanceX - 50 ether, "Balance not deducted correctly");
         vm.stopPrank();
-
-        // vm.startPrank(userX);
-        // uint256 _yield = donate.getYield(address(userX));
-        // console.log("Yield: ", _yield);
     }
 }
