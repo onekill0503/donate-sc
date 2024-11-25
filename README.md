@@ -4,7 +4,6 @@
 
 Giftify is a **decentralized investment gifting platform**. It empowers creators through transparent, blockchain-based donations while rewarding gifters with yields generated from their contributions. By leveraging **USDe**, an internet-native digital dollar, Giftify creates a sustainable and mutually beneficial ecosystem for creators and gifters.
 
----
 
 ## 📖 About
 
@@ -18,7 +17,6 @@ Giftify combines the power of web3 and decentralized finance (DeFi) to transform
 
 Through the use of blockchain technology and **Merkle Tree-based yield allocation ([service](https://github.com/onekill0503/giftify-service))**, Giftify ensures fairness, transparency, and efficiency in all transactions.
 
----
 
 ## 💡 Problem To Solve
 
@@ -30,11 +28,9 @@ Traditional donation platforms lack decentralization and often fail to incentivi
 
 Giftify introduces a **decentralized, win-win model** where gifters gain financial rewards, creators receive donations transparently, and all interactions are powered by blockchain technology.
 
----
 
 ## ⚙️ Our Workflow
 
----
 
 Giftify simplifies decentralized donations while rewarding gifters through a transparent and efficient process:
 
@@ -53,19 +49,16 @@ Giftify simplifies decentralized donations while rewarding gifters through a tra
 
 Giftify ensures that all interactions between gifters and creators are fair, secure, and powered by decentralized technology.
 
----
 
 ## 🛠 Future Enhancements
 
 - **Multi-Asset Support:** Extend support to more staking assets.
 - **Advanced Analytics:** Provide insights into donation impacts and yield generation.
 
----
 
 ## 📝 License
 
 This project is licensed under the MIT License - see the `LICENSE` file for details.
 
----
 
 Thank you for choosing Giftify — **Empowering Creators, Rewarding Gifters.**
