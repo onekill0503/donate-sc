@@ -2,171 +2,287 @@
 pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./interfaces/IVault.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./interfaces/ISUSDE.sol";
 
-contract Donate {
-    struct DonationRecord {
-        address to;
-        uint256 amount;
-        address token;
+/**
+ * @title Donate
+ * @author To De Moon Team
+ * @notice This Contract is used for donation and store the donation data
+ * @custom:experimental This is an experimental contract
+ */
+contract Donate is Ownable {
+    /**
+     * @notice Gifters Record Struct to Gifter data
+     */
+    struct GiftersRecord {
+        uint256 totalDonations; // total donation amount
+        uint256 donatedAmount; // donation amount deducted by platform fees
+        uint256 totalShares; // total shares of donation
+        uint256 grossDonatedAmount; // gross amount of donation
+        uint256 lastClaimed; // last claimed timestamp
     }
 
-    struct Donatur {
-        address donatur;
-        uint256 amount;
-        address token;
+    struct WithdrawBatch {
+        uint256 batchAmount;
+        uint256 lastBatchWithdraw;
+        bool onGoing;
     }
 
+    struct UserShares {
+        uint256 totalShares;
+        uint256 claimedAmount;
+        uint256 usdeAmount;
+    }
+    /**
+     * @notice Creators Record Struct to Creator data
+     */
+
+    struct CreatorsRecord {
+        uint256 totalDonation; // total donation amount
+        uint256 claimableShares; // claimable donation amount
+        uint256 lastClaimed; // last claimed timestamp
+    }
+
+    /**
+     * @notice Variables to store total donations
+     */
     uint256 public totalDonations;
+    /**
+     * @notice Variables to store total withdraw
+     */
     uint256 public totalWithdraw;
-    address public owner;
+    /**
+     * @notice Variables to store platform address
+     */
     address public platformAddress;
+    /**
+     * @notice Platform Fees Percentage (fixed to 5%), platform fees will be deducted when user donate
+     */
+    uint256 public platformFees = 5;
+    /**
+     * @notice creator Fees Percentage (fixed to 30%), creator fees will be deducted when creator claim donation
+     */
+    uint256 public creatorPercentage = 30;
+    /**
+     * @notice yield Percentage (fixed to 70%), this is donatur yield percentage for cashback
+     */
+    uint256 public gifterPercentage = 70;
+    /**
+     * @notice batchWithdrawAmount to store total amount to batch withdraw
+     */
+    uint256 public currentBatch;
+    /**
+     * @notice batchWithdrawMin to store minimum amount to batch withdraw
+     */
+    uint256 public batchWithdrawMin = 500e18;
+    /**
+     * @notice Merkle Root Hash to store merkle root hash
+     */
+    bytes32 public merkleRoot;
 
-    // Platform Fees was fixed to 1% of the donation amount
-    uint256 public platformFees = 1e16;
-    // Goes to vault percentage fixed to 24% of the donation amount
-    uint256 public vaultPercentage = 24e16;
+    event NewDonation(
+        address indexed gifter,
+        uint256 grossAmount,
+        uint256 netAmount,
+        address indexed creator,
+        uint256 gifterShares,
+        uint256 timestamp
+    );
+    event InitiateWithdraw(address indexed creator, uint256 shares, uint256 timestamp);
+    event ClaimReward(address indexed user, uint256 amount, uint256 timestamp);
 
-    event Donation(address indexed donor, uint256 amount);
-    event ClaimDonation(address indexed donor, uint256 amount);
-    event addAllowedDonationTokenEvent(address indexed token);
-    event removeAllowedDonationTokenEvent(address indexed token);
+    error DONATE__AMOUNT_ZERO();
+    error DONATE__INSUFFICIENT_BALANCE(address wallet);
+    error DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED(uint256 batchWithdrawAmount);
+    error DONATE__INVALID_MERKLE_PROOF();
+    error DONATE__ALREADY_CLAIMED(address wallet);
 
-    mapping(address => mapping(address => uint256)) public donations;
-    mapping(address => DonationRecord[]) public donatedAmount;
-    mapping(address => Donatur[]) public donatur;
+    /**
+     * @notice Donation Mapping to store donation data
+     */
+    mapping(address => GiftersRecord) public gifters;
+    /**
+     * @notice Creators Mapping to store creator data
+     */
+    mapping(address => CreatorsRecord) public creators;
+    /**
+     * @notice Allowed Donation Token Mapping to store allowed donation token
+     */
     mapping(address => bool) public allowedDonationToken;
+    mapping(uint256 => WithdrawBatch) public batchWithdrawAmounts;
+    mapping(uint256 => mapping(address => bool)) public claimed;
+    mapping(uint256 => mapping(address => UserShares)) public userShares;
+    /**
+     * @notice Allowed Donation Token Array to store allowed donation token
+     */
     address[] public allowedDonationTokens;
-    address public vaultContract;
+    /**
+     * @notice sUSDe token address with ISUSDE interface
+     */
+    ISUSDE public sUSDeToken;
+    /**
+     * @notice USDe token address with IERC20 interface
+     */
+    IERC20 public uSDeToken;
 
-    constructor(address _platformAddress) {
-        owner = msg.sender;
+    /**
+     * @notice Constructor to initialize owner and platform address
+     * @param _platformAddress platform wallet address to receive platform fees
+     */
+    constructor(address _platformAddress, address _sUSDeToken, address _uSDEeToken) Ownable(msg.sender) {
         platformAddress = _platformAddress;
+        sUSDeToken = ISUSDE(_sUSDeToken);
+        uSDeToken = IERC20(_uSDEeToken);
     }
 
-    function donate(uint256 _amount, address _to, address _token) public {
-        require(allowedDonationToken[_token], "Donate: token not allowed");
-        require(_amount > 0, "Donate: amount must be greater than 0");
-        require(IERC20(_token).transferFrom(msg.sender, address(this), _amount), "Donate: transfer failed");
-
-        DonationRecord memory _donationRecord = DonationRecord({to: _to, amount: _amount, token: _token});
-        Donatur memory _donatur = Donatur({donatur: msg.sender, amount: _amount, token: _token});
-
-        donatedAmount[msg.sender].push(_donationRecord);
-        donatur[_to].push(_donatur);
-
-        donations[_to][_token] += _amount;
-        totalDonations += _amount;
-
-        emit Donation(msg.sender, _amount);
+    /**
+     * @notice Function to set merkle root hash (only owner can set)
+     * @param _merkleRoot merkle root hash
+     */
+    function setMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+        merkleRoot = _merkleRoot;
     }
 
-    function moveAllDonation(bool _claim) public {
-        int256 totalFunds = 0;
-        for (uint256 i = 0; i < allowedDonationTokens.length; i++) {
-            if (donations[msg.sender][allowedDonationTokens[i]] == 0) continue;
-            totalFunds += int256(donations[msg.sender][allowedDonationTokens[i]]);
-            moveDonation(donations[msg.sender][allowedDonationTokens[i]], allowedDonationTokens[i], _claim);
-        }
-        require(totalFunds > 0, "Donate: no funds to move");
+    /**
+     * @notice Donate function to donate token to creator
+     * @param _amount Donation amount for creator
+     * @param _to Creator wallet address
+     */
+    function donate(uint256 _amount, address _to) external {
+        if (_amount == 0) revert DONATE__AMOUNT_ZERO();
+        if (uSDeToken.balanceOf(msg.sender) < _amount) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
+
+        uint256 _platformFees = (_amount * platformFees) / 100;
+        uint256 _netAmount = _amount - _platformFees;
+        uint256 _gifterAmount = (_netAmount * gifterPercentage) / 100;
+        uint256 _netShares = sUSDeToken.convertToShares(_netAmount);
+        uint256 _gifterShares = sUSDeToken.convertToShares(_gifterAmount);
+
+        gifters[msg.sender].donatedAmount += _netAmount;
+        gifters[msg.sender].totalShares += _gifterShares;
+        gifters[msg.sender].grossDonatedAmount += _amount;
+        gifters[msg.sender].totalDonations += _amount;
+
+        creators[_to].totalDonation += _netAmount;
+        creators[_to].claimableShares += _netShares;
+
+        // 70% of donation will be record to calculate yield earned by gifter
+        userShares[currentBatch][msg.sender].totalShares += _gifterShares;
+        userShares[currentBatch][msg.sender].usdeAmount += _gifterAmount;
+        // 30% of donation will be record to calculate yield earned by creator
+        userShares[currentBatch][_to].totalShares += _netShares - _gifterShares;
+        userShares[currentBatch][_to].usdeAmount += _netAmount - _gifterAmount;
+
+        uSDeToken.transferFrom(msg.sender, platformAddress, _platformFees);
+        uSDeToken.transferFrom(msg.sender, address(this), _netAmount);
+        uSDeToken.approve(address(sUSDeToken), _netAmount);
+        sUSDeToken.deposit(_netAmount, address(this));
+
+        emit NewDonation(msg.sender, _amount, _netAmount, _to, _gifterShares, block.timestamp);
     }
 
-    function moveDonation(uint256 _amount, address _token, bool _claim) public {
-        require(allowedDonationToken[_token], "Donate: token not allowed");
-        require(donations[msg.sender][_token] >= _amount, "Donate: not enough balance");
-        uint256 _vaultPercentage = vaultPercentage;
-        if (!_claim) {
-            _vaultPercentage = 99e16; // 99% of the donation amount goes to the vault to getting yield
-        }
-        uint256 _platformFees = (_amount * platformFees) / 1e18;
-        uint256 _vaultAmount = (_amount * _vaultPercentage) / 1e18;
-        // calculate platform fees and donation amount
+    /**
+     * @notice Withdraw function to withdraw donation from creator
+     * @param _shares Amount of token to withdraw
+     */
+    function initiateWithdraw(uint256 _shares) external {
+        if (_shares == 0) revert DONATE__AMOUNT_ZERO();
+        if (creators[msg.sender].claimableShares < _shares) revert DONATE__INSUFFICIENT_BALANCE(msg.sender);
 
-        uint256 _donationAmount = _amount - _platformFees - _vaultAmount;
-
-        if (_donationAmount > 0) {
-            // 75% of the donation amount goes to the user
-            require(IERC20(_token).transfer(msg.sender, _donationAmount), "Donate: donation transfer failed");
-        }
-
-        // 1% of the donation amount goes to the platform
-        require(IERC20(_token).transfer(platformAddress, _platformFees), "Donate: fees transfer failed");
-
-        // 24% of the donation amount goes to the vault
-        require(IERC20(_token).approve(vaultContract, _vaultAmount), "Donate: approve failed");
-        require(IVault(vaultContract).depositToVault(msg.sender, _vaultAmount, _token), "Donate: deposit failed");
-
-        donations[msg.sender][_token] -= _amount;
-        totalWithdraw += _amount;
-
-        emit ClaimDonation(msg.sender, _amount);
-    }
-
-    function getTotalDonations(address _user) public view returns (uint256) {
-        return donatur[_user].length;
-    }
-
-    function getDonaturData(address _user, uint256 _index) public view returns (address, uint256) {
-        return (donatur[_user][_index].donatur, donatur[_user][_index].amount);
-    }
-
-    function addAllowedDonationToken(address _token) public {
-        require(msg.sender == owner, "Donate: only owner can add token");
-        allowedDonationToken[_token] = true;
-        allowedDonationTokens.push(_token);
-
-        emit addAllowedDonationTokenEvent(_token);
-    }
-
-    function changeOwner(address _newOwner) public {
-        require(msg.sender == owner, "Donate: only owner can change owner");
-        owner = _newOwner;
-    }
-
-    function removeAllowedDonationToken(address _token) public {
-        require(msg.sender == owner, "Donate: only owner can remove token");
-        allowedDonationToken[_token] = false;
-
-        // Get the index of the token to be removed
-        uint256 _removedIndex = allowedDonationTokens.length;
-        for (uint256 i = 0; i < allowedDonationTokens.length; i++) {
-            if (allowedDonationTokens[i] == _token) {
-                _removedIndex = i;
-                break;
-            }
+        if (batchWithdrawAmounts[currentBatch].onGoing) {
+            batchWithdrawAmounts[currentBatch + 1].batchAmount += _shares;
+        } else {
+            batchWithdrawAmounts[currentBatch].batchAmount += _shares;
         }
 
-        // if the token is not found, revert
-        require(_removedIndex < allowedDonationTokens.length, "Donate: token not found");
+        if (batchWithdrawAmounts[currentBatch].lastBatchWithdraw == 0) {
+            batchWithdrawAmounts[currentBatch].lastBatchWithdraw = block.timestamp;
+        }
+        emit InitiateWithdraw(msg.sender, _shares, block.timestamp);
+    }
 
-        // Move the last element to the removed index
-        for (uint256 i = _removedIndex; i < allowedDonationTokens.length - 1; i++) {
-            allowedDonationTokens[i] = allowedDonationTokens[i + 1];
+    /**
+     * @notice Function to batch withdraw all donation token from contract
+     */
+    function batchWithdraw() external onlyOwner {
+        if (batchWithdrawAmounts[currentBatch].batchAmount < batchWithdrawMin) {
+            revert DONATE__BATCH_WITHDRAW_MINIMUM_NOT_REACHED(batchWithdrawAmounts[currentBatch].batchAmount);
         }
 
-        // Pop the last element
-        allowedDonationTokens.pop();
+        sUSDeToken.approve(address(sUSDeToken), batchWithdrawAmounts[currentBatch].batchAmount);
+        sUSDeToken.cooldownShares(batchWithdrawAmounts[currentBatch].batchAmount);
 
-        emit removeAllowedDonationTokenEvent(_token);
+        batchWithdrawAmounts[currentBatch].onGoing = true;
     }
 
-    function isTokenAllowed(address _token) public view returns (bool) {
-        return allowedDonationToken[_token];
+    /**
+     * @notice Function to unstake and withdraw all donation token from contract
+     */
+    function unstakeBatchWithdraw() external onlyOwner {
+        sUSDeToken.unstake(address(this));
+        currentBatch += 1;
     }
 
-    function isActiveUser(address _user) public view returns (bool) {
-        // Active user determine based on the donation amount or the number of donations
-        return donatur[_user].length > 0;
+    /**
+     * @notice Function to change owner of the contract
+     * @param _newOwner new owner address
+     */
+    function changeOwner(address _newOwner) external onlyOwner {
+        Ownable.transferOwnership(_newOwner);
     }
 
-    function updateVaultContract(address _vaultContract) public {
-        require(msg.sender == owner, "Donate: only owner can update vault contract");
-        vaultContract = _vaultContract;
+    /**
+     * @notice function to get yield amount from active donation user
+     * @param _user user wallet address
+     * @return _yield yield amount deducted by yeild percentage
+     */
+    function getYield(address _user) external view returns (uint256) {
+        uint256 _totalUSDE = userShares[currentBatch][_user].claimedAmount > 0
+            ? userShares[currentBatch][_user].claimedAmount
+            : sUSDeToken.previewRedeem(userShares[currentBatch][_user].totalShares);
+        uint256 _yield = (_totalUSDE - userShares[currentBatch][_user].usdeAmount);
+        return _yield;
     }
 
-    function updateTotalWithdrawFromVault(uint256 _amount) public returns (bool) {
-        require(msg.sender == vaultContract, "Donate: only vault contract can update total withdraw");
-        totalWithdraw += _amount;
-        return true;
+    /**
+     * @notice function to update SUSDE token address
+     * @param _sUSDeToken sUSDe token address
+     */
+    function updateToken(address _sUSDeToken, address _USDeToken) external onlyOwner {
+        sUSDeToken = ISUSDE(_sUSDeToken);
+        uSDeToken = IERC20(_USDeToken);
+    }
+
+    /**
+     * @notice function to claim token
+     * @param _amount amount to claim
+     * @param _proof merkle proof
+     */
+    function claim(uint256 _amount, bytes32[] calldata _proof) external {
+        if (claimed[currentBatch][msg.sender]) revert DONATE__ALREADY_CLAIMED(msg.sender);
+        bool isValidProof = MerkleProof.verify(_proof, merkleRoot, keccak256(abi.encodePacked(msg.sender, _amount)));
+
+        if (!isValidProof) revert DONATE__INVALID_MERKLE_PROOF();
+        uSDeToken.transfer(msg.sender, _amount);
+
+        claimed[currentBatch][msg.sender] = true;
+        userShares[currentBatch][msg.sender].claimedAmount += _amount;
+
+        // if sender has donated before, update last claimed timestamp
+        if (gifters[msg.sender].donatedAmount > 0) {
+            gifters[msg.sender].lastClaimed = block.timestamp;
+        }
+
+        emit ClaimReward(msg.sender, _amount, block.timestamp);
+    }
+
+    function getBatchWithdrawAmount() external view returns (uint256) {
+        return batchWithdrawAmounts[currentBatch].batchAmount;
+    }
+
+    function getLastBatchWithdraw() external view returns (uint256) {
+        return batchWithdrawAmounts[currentBatch].lastBatchWithdraw;
     }
 }
