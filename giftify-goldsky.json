@@ -9,9 +9,9 @@
     "instances": [
       {
         "abi": "giftify",
-        "address": "0xc535711468ED0c21e4B6E0033C4852a1A0cd5848",
-        "startBlock": 1908307,
-        "chain": "ink-sepolia"
+        "address": "0x5b5e57e208074bb5397f26067c147276bd5b82d5",
+        "startBlock": 7182301,
+        "chain": "sepolia"
       }
     ]
   }

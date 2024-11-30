@@ -12,7 +12,7 @@ import "./interfaces/ISUSDE.sol";
  * @notice This Contract is used for donation and store the donation data
  * @custom:experimental This is an experimental contract
  */
-contract Donate is Ownable {
+contract Giftify is Ownable {
     /**
      * @notice Gifters Record Struct to Gifter data
      */
@@ -180,6 +180,8 @@ contract Donate is Ownable {
         uSDeToken.approve(address(sUSDeToken), _netAmount);
         sUSDeToken.deposit(_netAmount, address(this));
 
+        totalDonations += _amount;
+
         emit NewDonation(msg.sender, _amount, _netAmount, _to, _gifterShares, block.timestamp);
     }
 
@@ -275,13 +277,19 @@ contract Donate is Ownable {
             gifters[msg.sender].lastClaimed = block.timestamp;
         }
 
+        totalWithdraw += _amount;
+
         emit ClaimReward(msg.sender, _amount, block.timestamp);
     }
-
+    /**
+     * @notice function to get total withdraw amount in current batch
+     */
     function getBatchWithdrawAmount() external view returns (uint256) {
         return batchWithdrawAmounts[currentBatch].batchAmount;
     }
-
+    /**
+     * @notice function to gettotal withdraw amount in last batch
+     */
     function getLastBatchWithdraw() external view returns (uint256) {
         return batchWithdrawAmounts[currentBatch].lastBatchWithdraw;
     }
