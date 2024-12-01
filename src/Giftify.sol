@@ -202,6 +202,9 @@ contract Giftify is Ownable {
         if (batchWithdrawAmounts[currentBatch].lastBatchWithdraw == 0) {
             batchWithdrawAmounts[currentBatch].lastBatchWithdraw = block.timestamp;
         }
+
+        creators[msg.sender].claimableShares -= _shares;
+
         emit InitiateWithdraw(msg.sender, _shares, block.timestamp);
     }
 
